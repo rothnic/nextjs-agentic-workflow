@@ -1,13 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { WorkflowExecution } from '@/lib/types/workflow';
+
+const ACTIVE_POLL_INTERVAL = 1000; // 1 second when workflows are running
+const IDLE_POLL_INTERVAL = 5000; // 5 seconds when idle
+const AUTO_PAUSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 export function WorkflowStatus() {
   const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [isPolling, setIsPolling] = useState(true);
+  const [lastActivityTime, setLastActivityTime] = useState(() => Date.now());
+  const lastExecutionCountRef = useRef(0);
+  
+  const hasActiveWorkflows = useCallback(() => {
+    return executions.some(ex => ex.status === 'running' || ex.status === 'pending');
+  }, [executions]);
   
   useEffect(() => {
+    // Don't start polling if disabled
+    if (!isPolling) return;
+    
+    const hasActive = hasActiveWorkflows();
+    const pollInterval = hasActive ? ACTIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL;
+    
     // Poll for workflow updates
     const fetchExecutions = async () => {
       try {
@@ -15,6 +32,12 @@ export function WorkflowStatus() {
         if (response.ok) {
           const data = await response.json();
           setExecutions(data);
+          
+          // Track activity
+          if (data.length !== lastExecutionCountRef.current) {
+            setLastActivityTime(Date.now());
+            lastExecutionCountRef.current = data.length;
+          }
         }
       } catch (error) {
         console.error('Error fetching workflows:', error);
@@ -24,19 +47,39 @@ export function WorkflowStatus() {
     // Initial fetch
     fetchExecutions();
     
-    // Poll every second
-    const interval = setInterval(fetchExecutions, 1000);
+    // Set up polling with appropriate interval
+    const interval = setInterval(fetchExecutions, pollInterval);
     
-    // Update current time for duration calculations
-    const timeInterval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
+    // Update current time for duration calculations only when there are active workflows
+    let timeInterval: NodeJS.Timeout | null = null;
+    if (hasActive) {
+      timeInterval = setInterval(() => {
+        setCurrentTime(Date.now());
+      }, 1000);
+    }
     
     return () => {
       clearInterval(interval);
-      clearInterval(timeInterval);
+      if (timeInterval) clearInterval(timeInterval);
     };
-  }, []);
+  }, [isPolling, hasActiveWorkflows]);
+  
+  // Auto-pause polling after inactivity
+  useEffect(() => {
+    if (!isPolling) return;
+    
+    const checkInactivity = () => {
+      const timeSinceActivity = Date.now() - lastActivityTime;
+      if (timeSinceActivity > AUTO_PAUSE_TIMEOUT) {
+        setIsPolling(false);
+        console.log('Auto-paused workflow polling due to inactivity');
+      }
+    };
+    
+    const inactivityCheck = setInterval(checkInactivity, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(inactivityCheck);
+  }, [isPolling, lastActivityTime]);
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -69,17 +112,42 @@ export function WorkflowStatus() {
     return `${(duration / 1000).toFixed(1)}s`;
   };
   
+  const togglePolling = () => {
+    setIsPolling(!isPolling);
+    if (!isPolling) {
+      setLastActivityTime(Date.now());
+    }
+  };
+  
   // Show only the most recent 5 executions
   const recentExecutions = executions.slice(-5).reverse();
+  const hasActive = hasActiveWorkflows();
   
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-gray-300 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Workflow Status
-        </h2>
-        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-          Real-time execution tracking
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Workflow Status
+          </h2>
+          <button
+            onClick={togglePolling}
+            className={`text-xs px-2 py-1 rounded transition-colors ${
+              isPolling
+                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}
+            title={isPolling ? 'Click to pause polling' : 'Click to resume polling'}
+          >
+            {isPolling ? '● Live' : '○ Paused'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          {isPolling ? (
+            hasActive ? 'Polling every 1s' : 'Polling every 5s (idle)'
+          ) : (
+            'Polling paused'
+          )}
         </p>
       </div>
       

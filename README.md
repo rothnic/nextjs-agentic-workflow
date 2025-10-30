@@ -128,6 +128,14 @@ The right panel shows:
 - Overall workflow duration
 - Success/failure states
 
+**Polling Behavior:**
+- **Active workflows**: Polls every 1 second for real-time updates
+- **Idle state**: Polls every 5 seconds when no workflows are running
+- **Auto-pause**: Automatically stops polling after 5 minutes of inactivity
+- **Manual control**: Click the Live/Paused button to toggle polling on/off
+
+This intelligent polling reduces unnecessary API calls and prevents excessive endpoint usage.
+
 ## Testing
 
 ### Unit Tests
