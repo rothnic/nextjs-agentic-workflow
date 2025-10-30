@@ -3,7 +3,9 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { validateLead, enrichLead, scoreLead, processLead } from '@/lib/workflows/lead-workflows';
+import { submitLead } from '@/lib/storage/leads';
 import { Lead } from '@/lib/types/workflow';
+import { nanoid } from 'nanoid';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -180,10 +182,43 @@ export async function POST(req: Request) {
           };
         },
       }),
+      
+      submitLead: tool({
+        description: 'Submit a new lead to the system. Use this when a user wants to add or create a new lead.',
+        parameters: z.object({
+          email: z.string().email().describe('Email address'),
+          name: z.string().describe('Name of the lead'),
+          company: z.string().optional().describe('Company name'),
+          phone: z.string().optional().describe('Phone number'),
+          source: z.string().optional().describe('Lead source (e.g., website, referral, event)'),
+        }),
+        execute: async ({ email, name, company, phone, source }) => {
+          const leadId = nanoid();
+          const lead: Lead = {
+            id: leadId,
+            email,
+            name,
+            company,
+            phone,
+            source,
+            status: 'new',
+          };
+          
+          const result = submitLead(lead);
+          
+          return {
+            success: result.success,
+            leadId: result.leadId,
+            message: result.message,
+            lead,
+          };
+        },
+      }),
     },
-    system: `You are a helpful lead processing assistant. You can help validate, enrich, score, and process leads through various workflows.
+    system: `You are a helpful lead processing assistant. You can help validate, enrich, score, process, and submit leads.
     
 When users provide lead information, you can:
+- Submit new leads to the system
 - Validate leads to check email format and domain validity
 - Enrich leads with additional company information
 - Score leads based on available data to determine qualification
@@ -191,7 +226,7 @@ When users provide lead information, you can:
 
 Each workflow execution happens in multiple steps, and users can track the progress in real-time through the UI.
 
-Always be clear about what workflow you're executing and what the results mean.`,
+Always be clear about what action you're taking and what the results mean.`,
   });
 
   return result.toDataStreamResponse();

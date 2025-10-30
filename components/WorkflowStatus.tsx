@@ -1,85 +1,41 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { WorkflowExecution } from '@/lib/types/workflow';
 
-const ACTIVE_POLL_INTERVAL = 1000; // 1 second when workflows are running
-const IDLE_POLL_INTERVAL = 5000; // 5 seconds when idle
-const AUTO_PAUSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+interface WorkflowStatusProps {
+  refreshTrigger?: number;
+}
 
-export function WorkflowStatus() {
+export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
-  const [isPolling, setIsPolling] = useState(true);
-  const [lastActivityTime, setLastActivityTime] = useState(() => Date.now());
-  const lastExecutionCountRef = useRef(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const hasActiveWorkflows = useCallback(() => {
-    return executions.some(ex => ex.status === 'running' || ex.status === 'pending');
-  }, [executions]);
-  
-  useEffect(() => {
-    // Don't start polling if disabled
-    if (!isPolling) return;
-    
-    const hasActive = hasActiveWorkflows();
-    const pollInterval = hasActive ? ACTIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL;
-    
-    // Poll for workflow updates
-    const fetchExecutions = async () => {
-      try {
-        const response = await fetch('/api/workflows');
-        if (response.ok) {
-          const data = await response.json();
-          setExecutions(data);
-          
-          // Track activity
-          if (data.length !== lastExecutionCountRef.current) {
-            setLastActivityTime(Date.now());
-            lastExecutionCountRef.current = data.length;
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching workflows:', error);
+  const fetchExecutions = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await fetch('/api/workflows');
+      if (response.ok) {
+        const data = await response.json();
+        setExecutions(data);
       }
-    };
-    
-    // Initial fetch
-    fetchExecutions();
-    
-    // Set up polling with appropriate interval
-    const interval = setInterval(fetchExecutions, pollInterval);
-    
-    // Update current time for duration calculations only when there are active workflows
-    let timeInterval: NodeJS.Timeout | null = null;
-    if (hasActive) {
-      timeInterval = setInterval(() => {
-        setCurrentTime(Date.now());
-      }, 1000);
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+    } finally {
+      setIsRefreshing(false);
     }
-    
-    return () => {
-      clearInterval(interval);
-      if (timeInterval) clearInterval(timeInterval);
-    };
-  }, [isPolling, hasActiveWorkflows]);
+  }, []);
   
-  // Auto-pause polling after inactivity
+  // Auto-refresh when refreshTrigger changes (when workflow is triggered from chat)
   useEffect(() => {
-    if (!isPolling) return;
-    
-    const checkInactivity = () => {
-      const timeSinceActivity = Date.now() - lastActivityTime;
-      if (timeSinceActivity > AUTO_PAUSE_TIMEOUT) {
-        setIsPolling(false);
-        console.log('Auto-paused workflow polling due to inactivity');
-      }
-    };
-    
-    const inactivityCheck = setInterval(checkInactivity, 30000); // Check every 30 seconds
-    
-    return () => clearInterval(inactivityCheck);
-  }, [isPolling, lastActivityTime]);
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchExecutions();
+    }
+  }, [refreshTrigger, fetchExecutions]);
+  
+  const handleRefresh = useCallback(() => {
+    fetchExecutions();
+  }, [fetchExecutions]);
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,20 +64,12 @@ export function WorkflowStatus() {
   };
   
   const formatDuration = (start: number, end?: number) => {
-    const duration = (end || currentTime) - start;
+    const duration = (end || Date.now()) - start;
     return `${(duration / 1000).toFixed(1)}s`;
-  };
-  
-  const togglePolling = () => {
-    setIsPolling(!isPolling);
-    if (!isPolling) {
-      setLastActivityTime(Date.now());
-    }
   };
   
   // Show only the most recent 5 executions
   const recentExecutions = executions.slice(-5).reverse();
-  const hasActive = hasActiveWorkflows();
   
   return (
     <div className="flex flex-col h-full">
@@ -131,30 +79,23 @@ export function WorkflowStatus() {
             Workflow Status
           </h2>
           <button
-            onClick={togglePolling}
-            className={`text-xs px-2 py-1 rounded transition-colors ${
-              isPolling
-                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-            }`}
-            title={isPolling ? 'Click to pause polling' : 'Click to resume polling'}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            title="Refresh workflows"
           >
-            {isPolling ? '● Live' : '○ Paused'}
+            {isRefreshing ? '⟳ Refreshing...' : '↻ Refresh'}
           </button>
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          {isPolling ? (
-            hasActive ? 'Polling every 1s' : 'Polling every 5s (idle)'
-          ) : (
-            'Polling paused'
-          )}
+          Click refresh to update workflow status
         </p>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {recentExecutions.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
-            <p className="text-sm">No workflows running</p>
+            <p className="text-sm">No workflows found</p>
             <p className="text-xs mt-1">Start a workflow from the chat</p>
           </div>
         )}

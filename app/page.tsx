@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 import { WorkflowStatus } from '@/components/WorkflowStatus';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 
 export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleWorkflowTriggered = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950">
@@ -33,11 +38,11 @@ export default function Home() {
         
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 bg-white dark:bg-gray-900">
-            <ChatInterface />
+            <ChatInterface onWorkflowTriggered={handleWorkflowTriggered} />
           </div>
           
           <div className="w-96 border-l border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <WorkflowStatus />
+            <WorkflowStatus refreshTrigger={refreshTrigger} />
           </div>
         </div>
       </div>

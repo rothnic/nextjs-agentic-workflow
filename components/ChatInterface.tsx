@@ -23,7 +23,11 @@ interface Message {
   toolInvocations?: ToolInvocation[];
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  onWorkflowTriggered?: () => void;
+}
+
+export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   const [config, setConfig] = useState<LLMConfig | null>(null);
 
   useEffect(() => {
@@ -34,6 +38,13 @@ export function ChatInterface() {
     api: '/api/chat',
     body: {
       config,
+    },
+    onToolCall: ({ toolCall }) => {
+      // Trigger refresh when any workflow tool is called
+      const workflowTools = ['validateLead', 'enrichLead', 'scoreLead', 'processLead', 'submitLead'];
+      if (workflowTools.includes(toolCall.toolName)) {
+        onWorkflowTriggered?.();
+      }
     },
   });
   

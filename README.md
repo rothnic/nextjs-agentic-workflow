@@ -5,13 +5,16 @@ AI-powered lead validation, enrichment, and scoring with real-time workflow trac
 ## Features
 
 - **Chat Interface**: Interactive chat powered by AI SDK with natural language processing
-- **AI Agent with Tools**: Agent can trigger workflows through tool calling
-- **Real-time Workflow Status**: Live tracking of workflow execution with step-by-step progress
+- **AI Agent with Tools**: Agent can submit, validate, enrich, score, and process leads
+- **Manual Workflow Refresh**: Click-to-refresh workflow status (no automatic polling)
 - **Multiple Workflows**:
+  - **Submit**: Add new leads to the system
   - **Validate**: Check email format and domain validity
   - **Enrich**: Add company information and data enrichment
   - **Score**: Calculate lead score and determine qualification
   - **Process**: Run complete workflow (validate + enrich + score)
+- **Multi-Provider LLM Support**: Use OpenAI or OpenRouter
+- **Persistent Settings**: Configure via environment variables for deployment persistence
 - **TypeScript**: Full type safety throughout the application
 - **Testing**: Unit tests with Jest and E2E tests with Playwright
 - **Modern UI**: Responsive design with Tailwind CSS and dark mode support
@@ -102,12 +105,13 @@ Click the **⚙️ Settings** button in the top-right corner to:
 - For OpenRouter: Browse and select from available free models
 - View free models sorted by popularity at [OpenRouter Models](https://openrouter.ai/models?fmt=cards&max_price=0&order=top-weekly)
 
-**Priority**: Client-side settings override server-side environment variables.
+**Priority**: Client-side settings override server-side environment variables. For persistent settings across deployments, configure environment variables on your hosting platform (e.g., Vercel, Railway).
 
 ### Chat Commands
 
 The AI agent understands natural language. Here are some example commands:
 
+- "Submit new lead: john@example.com, John Doe, Acme Corp"
 - "Validate lead: john@example.com, John Doe, Acme Corp"
 - "Enrich lead: jane@techcorp.com, Jane Smith, TechCorp"
 - "Score lead: bob@startup.io, Bob Johnson, Startup Inc, +1234567890"
@@ -115,26 +119,23 @@ The AI agent understands natural language. Here are some example commands:
 
 The agent will automatically:
 1. Parse the lead information
-2. Execute the appropriate workflow
-3. Show real-time progress in the status panel
+2. Execute the appropriate action or workflow
+3. Trigger automatic refresh of the workflow status panel
 4. Return results and insights
 
 ### Workflow Status Panel
 
 The right panel shows:
-- Active and recent workflow executions
+- Recent workflow executions (last 5)
 - Step-by-step progress with status indicators
 - Execution time for each step
 - Overall workflow duration
 - Success/failure states
 
-**Polling Behavior:**
-- **Active workflows**: Polls every 1 second for real-time updates
-- **Idle state**: Polls every 5 seconds when no workflows are running
-- **Auto-pause**: Automatically stops polling after 5 minutes of inactivity
-- **Manual control**: Click the Live/Paused button to toggle polling on/off
-
-This intelligent polling reduces unnecessary API calls and prevents excessive endpoint usage.
+**Refresh Behavior:**
+- **Manual refresh**: Click the "↻ Refresh" button to update workflow status
+- **Auto-refresh**: Status panel automatically refreshes when workflows are triggered from chat
+- **No polling**: Eliminates unnecessary API calls when idle
 
 ## Testing
 
