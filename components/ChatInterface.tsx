@@ -29,16 +29,17 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   const [config, setConfig] = useState<LLMConfig | null>(null);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   useEffect(() => {
-    setConfig(getStoredConfig());
+    const loadedConfig = getStoredConfig();
+    setConfig(loadedConfig);
+    setIsConfigLoaded(true);
   }, []);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
-    body: {
-      config,
-    },
+    body: config ? { config } : {},
     onToolCall: ({ toolCall }) => {
       // Trigger refresh when any workflow tool is called
       const workflowTools = ['validateLead', 'enrichLead', 'scoreLead', 'processLead', 'submitLead'];
@@ -53,6 +54,15 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  
+  // Show loading state while config is being loaded
+  if (!isConfigLoaded) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
   
   return (
     <div className="flex flex-col h-full">
