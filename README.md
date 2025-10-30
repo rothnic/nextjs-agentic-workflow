@@ -42,10 +42,33 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and add your OpenAI API key:
-```
+Edit `.env.local` and configure your preferred LLM provider:
+
+#### Option 1: OpenAI (Default)
+```env
 OPENAI_API_KEY=your_openai_api_key_here
+LLM_PROVIDER=openai
 ```
+
+#### Option 2: OpenRouter
+```env
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=your_preferred_model_id
+LLM_PROVIDER=openrouter
+```
+
+**Note**: You can also configure the LLM provider through the Settings UI (⚙️ button in the top-right corner) instead of using environment variables. Client-side settings take precedence over server-side configuration.
+
+### Required Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `OPENAI_API_KEY` | OpenAI API key | Yes (if using OpenAI) | - |
+| `OPENROUTER_API_KEY` | OpenRouter API key | Yes (if using OpenRouter) | - |
+| `OPENROUTER_BASE_URL` | OpenRouter API base URL | No | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL` | Model ID to use with OpenRouter | Yes (if using OpenRouter) | - |
+| `LLM_PROVIDER` | Provider selection: `openai` or `openrouter` | No | `openai` |
 
 ### Development
 
@@ -64,6 +87,22 @@ npm start
 ```
 
 ## Usage
+
+### LLM Configuration
+
+The application supports two ways to configure your LLM provider:
+
+#### 1. Environment Variables (Server-side)
+Configure in `.env.local` as described in the installation section. This is recommended for production deployments.
+
+#### 2. Settings UI (Client-side)
+Click the **⚙️ Settings** button in the top-right corner to:
+- Switch between OpenAI and OpenRouter
+- Enter your API key (stored securely in browser localStorage)
+- For OpenRouter: Browse and select from available free models
+- View free models sorted by popularity at [OpenRouter Models](https://openrouter.ai/models?fmt=cards&max_price=0&order=top-weekly)
+
+**Priority**: Client-side settings override server-side environment variables.
 
 ### Chat Commands
 

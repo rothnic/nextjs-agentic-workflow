@@ -1,4 +1,5 @@
 import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { validateLead, enrichLead, scoreLead, processLead } from '@/lib/workflows/lead-workflows';
@@ -7,11 +8,46 @@ import { Lead } from '@/lib/types/workflow';
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
+// Configure LLM provider based on environment variables
+function getModel() {
+  const provider = process.env.LLM_PROVIDER || 'openai';
+  
+  if (provider === 'openrouter') {
+    const openrouter = createOpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+    });
+    
+    const model = process.env.OPENROUTER_MODEL || 'openai/gpt-3.5-turbo';
+    return openrouter(model);
+  }
+  
+  // Default to OpenAI
+  return openai('gpt-4-turbo');
+}
+
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages, config } = await req.json();
+
+  // Use client config if provided, otherwise use server config
+  let model;
+  if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
+    const openrouter = createOpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
+    });
+    model = openrouter(config.model);
+  } else if (config?.provider === 'openai' && config?.apiKey) {
+    const clientOpenAI = createOpenAI({
+      apiKey: config.apiKey,
+    });
+    model = clientOpenAI('gpt-4-turbo');
+  } else {
+    model = getModel();
+  }
 
   const result = streamText({
-    model: openai('gpt-4-turbo'),
+    model,
     messages,
     tools: {
       validateLead: tool({

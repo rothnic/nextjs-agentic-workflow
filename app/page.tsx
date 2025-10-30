@@ -1,17 +1,34 @@
+'use client';
+
+import { useState } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 import { WorkflowStatus } from '@/components/WorkflowStatus';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 
 export default function Home() {
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950">
       <div className="flex-1 flex flex-col">
         <header className="bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700 p-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Lead Processing Agent
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            AI-powered lead validation, enrichment, and scoring
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Lead Processing Agent
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                AI-powered lead validation, enrichment, and scoring
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              title="Configure LLM settings"
+            >
+              ⚙️ Settings
+            </button>
+          </div>
         </header>
         
         <div className="flex-1 flex overflow-hidden">
@@ -24,6 +41,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

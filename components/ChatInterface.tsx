@@ -1,7 +1,9 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getStoredConfig } from '@/lib/config/llm-storage';
+import { LLMConfig } from '@/lib/types/llm-config';
 
 interface ToolInvocation {
   toolCallId: string;
@@ -22,8 +24,17 @@ interface Message {
 }
 
 export function ChatInterface() {
+  const [config, setConfig] = useState<LLMConfig | null>(null);
+
+  useEffect(() => {
+    setConfig(getStoredConfig());
+  }, []);
+
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
+    body: {
+      config,
+    },
   });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
