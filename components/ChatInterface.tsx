@@ -12,6 +12,7 @@ interface ToolInvocation {
   result?: {
     message?: string;
     executionId?: string;
+    leadId?: string;
     success?: boolean;
   };
 }
@@ -106,19 +107,34 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                       key={toolInvocation.toolCallId}
                       className="text-xs bg-white dark:bg-gray-900 rounded p-2 border border-gray-300 dark:border-gray-700"
                     >
-                      <div className="font-semibold text-blue-600 dark:text-blue-400">
+                      <div className="font-semibold text-blue-600 dark:text-blue-400 mb-1">
                         🔧 {toolInvocation.toolName}
                       </div>
                       {toolInvocation.state === 'result' && toolInvocation.result && (
-                        <div className="mt-1">
+                        <div className="mt-1 space-y-1">
                           <div className="text-gray-600 dark:text-gray-400">
                             {toolInvocation.result.message}
                           </div>
                           {toolInvocation.result.executionId && (
-                            <div className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                            <div className="text-gray-500 dark:text-gray-500 text-xs">
                               Execution ID: {toolInvocation.result.executionId}
                             </div>
                           )}
+                          {toolInvocation.result.leadId && (
+                            <div className="text-gray-500 dark:text-gray-500 text-xs">
+                              Lead ID: {toolInvocation.result.leadId}
+                            </div>
+                          )}
+                          {toolInvocation.result.success !== undefined && (
+                            <div className={`text-xs font-medium ${toolInvocation.result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {toolInvocation.result.success ? '✓ Success' : '✗ Failed'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {toolInvocation.state === 'call' && (
+                        <div className="text-gray-500 dark:text-gray-500 text-xs">
+                          Executing...
                         </div>
                       )}
                     </div>

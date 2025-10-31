@@ -184,7 +184,7 @@ export async function POST(req: Request) {
       }),
       
       submitLead: tool({
-        description: 'Submit a new lead to the system. Use this when a user wants to add or create a new lead.',
+        description: 'Submit a new lead to the system. Use this when a user wants to add or create a new lead. This will also validate the lead automatically.',
         parameters: z.object({
           email: z.string().email().describe('Email address'),
           name: z.string().describe('Name of the lead'),
@@ -204,13 +204,21 @@ export async function POST(req: Request) {
             status: 'new',
           };
           
+          // Submit the lead to storage
           const result = submitLead(lead);
           
+          // Automatically validate the submitted lead to create a workflow execution
+          const execution = await validateLead(leadId, lead);
+          
           return {
-            success: result.success,
+            success: result.success && execution.status === 'completed',
             leadId: result.leadId,
-            message: result.message,
+            executionId: execution.id,
+            message: execution.status === 'completed'
+              ? `Lead ${name} (${email}) submitted and validated successfully`
+              : `Lead ${name} (${email}) submitted but validation ${execution.status}`,
             lead,
+            validation: execution.result,
           };
         },
       }),
