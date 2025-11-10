@@ -110,36 +110,61 @@ function getModel() {
 export async function POST(req: Request) {
   try {
     const { messages, config } = await req.json();
-    console.log('[Chat] Received chat request with config:', {
+    console.log('[Chat] Received chat request');
+    console.log('[Chat] Config:', JSON.stringify({
       provider: config?.provider,
       hasApiKey: !!config?.apiKey,
-      model: config?.model
-    });
+      apiKeyPrefix: config?.apiKey?.substring(0, 20) + '...',
+      model: config?.model,
+      baseUrl: config?.baseUrl
+    }, null, 2));
+    console.log('[Chat] Messages count:', messages?.length);
 
     // Use client config if provided, otherwise use server config
     let model;
-    if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
-      // Sanitize API key - remove any env var prefix if present
-      const apiKey = config.apiKey.replace(/^OPENROUTER_API_KEY=/, '');
-      console.log('[Chat] Using OpenRouter with model:', config.model);
-      const openrouter = createOpenAI({
-        apiKey,
-        baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
-      });
-      model = openrouter(config.model);
-    } else if (config?.provider === 'openai' && config?.apiKey) {
-      // Sanitize API key - remove any env var prefix if present
-      const apiKey = config.apiKey.replace(/^OPENAI_API_KEY=/, '');
-      console.log('[Chat] Using OpenAI');
-      const clientOpenAI = createOpenAI({
-        apiKey,
-      });
-      model = clientOpenAI('gpt-4-turbo');
-    } else {
-      console.log('[Chat] Using server-configured model');
-      model = getModel();
+    try {
+      if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
+        // Sanitize API key - remove any env var prefix if present
+        let apiKey = config.apiKey.trim();
+        apiKey = apiKey.replace(/^OPENROUTER_API_KEY=/, '');
+        apiKey = apiKey.replace(/^["']|["']$/g, ''); // Remove quotes
+
+        console.log('[Chat] Using OpenRouter');
+        console.log('[Chat] Model:', config.model);
+        console.log('[Chat] API key length after sanitization:', apiKey.length);
+        console.log('[Chat] API key starts with:', apiKey.substring(0, 8));
+
+        const openrouter = createOpenAI({
+          apiKey,
+          baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
+        });
+        model = openrouter(config.model);
+        console.log('[Chat] OpenRouter model created successfully');
+      } else if (config?.provider === 'openai' && config?.apiKey) {
+        // Sanitize API key - remove any env var prefix if present
+        let apiKey = config.apiKey.trim();
+        apiKey = apiKey.replace(/^OPENAI_API_KEY=/, '');
+        apiKey = apiKey.replace(/^["']|["']$/g, ''); // Remove quotes
+
+        console.log('[Chat] Using OpenAI');
+        console.log('[Chat] API key length after sanitization:', apiKey.length);
+
+        const clientOpenAI = createOpenAI({
+          apiKey,
+        });
+        model = clientOpenAI('gpt-4-turbo');
+        console.log('[Chat] OpenAI model created successfully');
+      } else {
+        console.log('[Chat] Using server-configured model');
+        model = getModel();
+      }
+    } catch (modelError) {
+      console.error('[Chat] Error creating model:', modelError);
+      console.error('[Chat] Model error stack:', modelError instanceof Error ? modelError.stack : 'No stack');
+      throw new Error(`Failed to create model: ${modelError instanceof Error ? modelError.message : 'Unknown error'}`);
     }
 
+    console.log('[Chat] Starting streamText...');
     const result = streamText({
       model,
       messages,
@@ -348,13 +373,23 @@ Each workflow execution happens in multiple steps, and users can track the progr
 Always be clear about what action you're taking and what the results mean.`,
     });
 
+    console.log('[Chat] streamText created, returning response');
     return result.toDataStreamResponse();
   } catch (error) {
+    console.error('[Chat] ==================== ERROR ====================');
     console.error('[Chat] Error in POST handler:', error);
+    console.error('[Chat] Error type:', typeof error);
+    console.error('[Chat] Error name:', error instanceof Error ? error.name : 'Not an Error object');
+    console.error('[Chat] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[Chat] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[Chat] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    console.error('[Chat] ==================================================');
+
     return new Response(
       JSON.stringify({
         error: 'An error occurred while processing your request',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : String(error),
+        type: error instanceof Error ? error.name : typeof error
       }),
       {
         status: 500,
