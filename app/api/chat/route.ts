@@ -2,10 +2,31 @@ import { openai } from '@ai-sdk/openai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
-import { validateLead, enrichLead, scoreLead, processLead } from '@/lib/workflows/lead-workflows';
 import { submitLead } from '@/lib/storage/leads';
 import { Lead } from '@/lib/types/workflow';
 import { nanoid } from 'nanoid';
+
+// Helper to trigger workflow via API
+async function triggerWorkflow(
+  workflowName: string,
+  leadId: string,
+  lead: Lead
+): Promise<{ success: boolean; runId?: string; result?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`http://localhost:3000/api/workflows/${workflowName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId, lead }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Workflow execution failed',
+    };
+  }
+}
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -69,16 +90,16 @@ export async function POST(req: Request) {
             company,
             phone,
           };
-          
-          const execution = await validateLead(leadId, lead);
-          
+
+          const result = await triggerWorkflow('validate-lead', leadId, lead);
+
           return {
-            success: execution.status === 'completed',
-            executionId: execution.id,
-            result: execution.result,
-            message: execution.status === 'completed' 
-              ? 'Lead validated successfully' 
-              : 'Lead validation failed',
+            success: result.success,
+            runId: result.runId,
+            result: result.result,
+            message: result.success
+              ? 'Lead validation workflow started'
+              : `Validation failed: ${result.error}`,
           };
         },
       }),
@@ -98,16 +119,16 @@ export async function POST(req: Request) {
             name,
             company,
           };
-          
-          const execution = await enrichLead(leadId, lead);
-          
+
+          const result = await triggerWorkflow('enrich-lead', leadId, lead);
+
           return {
-            success: execution.status === 'completed',
-            executionId: execution.id,
-            result: execution.result,
-            message: execution.status === 'completed'
-              ? 'Lead enriched successfully'
-              : 'Lead enrichment failed',
+            success: result.success,
+            runId: result.runId,
+            result: result.result,
+            message: result.success
+              ? 'Lead enrichment workflow started'
+              : `Enrichment failed: ${result.error}`,
           };
         },
       }),
@@ -135,17 +156,17 @@ export async function POST(req: Request) {
             phone,
             enrichmentDetails,
           };
-          
-          const execution = await scoreLead(leadId, lead);
-          const result = execution.result as { score?: number; qualified?: boolean } | undefined;
-          
+
+          const result = await triggerWorkflow('score-lead', leadId, lead);
+          const scoreData = result.result as { score?: number; qualified?: boolean } | undefined;
+
           return {
-            success: execution.status === 'completed',
-            executionId: execution.id,
-            result: execution.result,
-            message: execution.status === 'completed' && result?.score !== undefined
-              ? `Lead scored: ${result.score}/100 (${result.qualified ? 'Qualified' : 'Not qualified'})`
-              : 'Lead scoring failed',
+            success: result.success,
+            runId: result.runId,
+            result: result.result,
+            message: result.success && scoreData?.score !== undefined
+              ? `Lead scored: ${scoreData.score}/100 (${scoreData.qualified ? 'Qualified' : 'Not qualified'})`
+              : `Scoring failed: ${result.error}`,
           };
         },
       }),
@@ -169,16 +190,16 @@ export async function POST(req: Request) {
             phone,
             source,
           };
-          
-          const execution = await processLead(leadId, lead);
-          
+
+          const result = await triggerWorkflow('process-lead', leadId, lead);
+
           return {
-            success: execution.status === 'completed',
-            executionId: execution.id,
-            result: execution.result,
-            message: execution.status === 'completed'
-              ? 'Lead processed successfully through all workflows'
-              : 'Lead processing failed',
+            success: result.success,
+            runId: result.runId,
+            result: result.result,
+            message: result.success
+              ? 'Lead processing workflow started (validate, enrich, score)'
+              : `Processing failed: ${result.error}`,
           };
         },
       }),
@@ -203,22 +224,21 @@ export async function POST(req: Request) {
             source,
             status: 'new',
           };
-          
+
           // Submit the lead to storage
-          const result = submitLead(lead);
-          
-          // Automatically validate the submitted lead to create a workflow execution
-          const execution = await validateLead(leadId, lead);
-          
+          const storageResult = submitLead(lead);
+
+          // Automatically validate the submitted lead via workflow
+          const workflowResult = await triggerWorkflow('validate-lead', leadId, lead);
+
           return {
-            success: result.success && execution.status === 'completed',
-            leadId: result.leadId,
-            executionId: execution.id,
-            message: execution.status === 'completed'
-              ? `Lead ${name} (${email}) submitted and validated successfully`
-              : `Lead ${name} (${email}) submitted but validation ${execution.status}`,
+            success: storageResult.success && workflowResult.success,
+            leadId: storageResult.leadId,
+            runId: workflowResult.runId,
+            message: workflowResult.success
+              ? `Lead ${name} (${email}) submitted and validation workflow started`
+              : `Lead submitted but validation failed: ${workflowResult.error}`,
             lead,
-            validation: execution.result,
           };
         },
       }),

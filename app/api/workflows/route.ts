@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAllWorkflowExecutions } from '@/lib/workflows/lead-workflows';
+import { getAllWorkflowRuns } from '@/lib/workflows/workflow-tracking';
 
 export async function GET() {
-  const executions = getAllWorkflowExecutions();
-  return NextResponse.json(executions);
+  const runs = getAllWorkflowRuns();
+  return NextResponse.json(runs);
 }
