@@ -115,10 +115,16 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className={`text-xs px-3 py-1 rounded transition-colors ${
+              isRefreshing
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
             title="Refresh workflows"
           >
-            {isRefreshing ? '⟳ Refreshing...' : '↻ Refresh'}
+            <span className="inline-block min-w-[70px]">
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </span>
           </button>
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400">

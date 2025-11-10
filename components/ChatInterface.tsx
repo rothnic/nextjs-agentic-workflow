@@ -166,16 +166,15 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder="Type a message..."
+            placeholder={isLoading ? "Agent is responding..." : "Type a message..."}
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-            disabled={isLoading}
           />
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={!input.trim() || isLoading}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            Send
+            {isLoading ? 'Sending...' : 'Send'}
           </button>
         </div>
       </form>

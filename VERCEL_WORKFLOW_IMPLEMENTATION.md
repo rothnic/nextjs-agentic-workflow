@@ -62,13 +62,17 @@ Each endpoint:
 
 ### Chat Integration
 
-The AI chat agent (`app/api/chat/route.ts`) triggers workflows via API calls:
+The AI chat agent (`app/api/chat/route.ts`) triggers workflows via direct function calls:
 
 ```typescript
 // Example: When user asks to validate a lead
 validateLead: tool({
   execute: async ({ leadId, email, name, company, phone }) => {
-    const result = await triggerWorkflow('validate-lead', leadId, lead);
+    const result = await executeWorkflowWithTracking('validate', leadId, lead, [
+      'Validate Email Format',
+      'Validate Domain',
+      'Finalize Validation',
+    ]);
     return {
       success: result.success,
       runId: result.runId,
@@ -77,6 +81,8 @@ validateLead: tool({
   },
 }),
 ```
+
+**Note**: Workflows are now executed directly in-process rather than via HTTP calls. This avoids hardcoded localhost URLs and ensures workflows work correctly in production environments.
 
 ## Configuration
 
@@ -87,15 +93,9 @@ validateLead: tool({
 WORKFLOW_ENABLE_DELAYS=true  # Set to 'false' to disable delays
 ```
 
-### Workflow Configuration
+### Delays Configuration
 
-`workflow.config.ts`:
-```typescript
-export default defineConfig({
-  name: 'lead-processing-workflows',
-  version: '1.0.0',
-});
-```
+Delays are controlled via the `STEP_DELAYS` constant in `lib/workflows/vercel-lead-workflows.ts` and can be enabled/disabled via the `WORKFLOW_ENABLE_DELAYS` environment variable.
 
 ## Benefits of Vercel Workflow DevKit
 
@@ -108,11 +108,11 @@ export default defineConfig({
 
 ## Workflow Execution Flow
 
-1. **User Action**: User submits a lead via chat or API
-2. **Tool Execution**: Chat agent calls `triggerWorkflow()`
-3. **Workflow Creation**: API route creates workflow run for tracking
-4. **Workflow Execution**: Vercel Workflow DevKit executes steps sequentially
-5. **Status Updates**: Each step updates status in real-time
+1. **User Action**: User submits a lead via chat
+2. **Tool Execution**: Chat agent calls `executeWorkflowWithTracking()`
+3. **Workflow Creation**: Helper function creates workflow run for tracking
+4. **Workflow Execution**: Vercel Workflow DevKit executes workflow function directly
+5. **Status Updates**: Each step updates status in real-time as it executes
 6. **Polling**: UI automatically polls for 60 seconds
 7. **Completion**: Workflow completes, polling stops
 8. **Manual Refresh**: User can manually refresh after polling stops
@@ -156,18 +156,27 @@ To test the workflows:
 
 ## Key Files
 
-- `lib/workflows/vercel-lead-workflows.ts` - Workflow definitions
-- `lib/workflows/workflow-tracking.ts` - Status tracking system
-- `app/api/workflows/*/route.ts` - Workflow API endpoints
-- `app/api/workflows/runs/route.ts` - Status API
+- `lib/workflows/vercel-lead-workflows.ts` - Workflow definitions with "use workflow" and "use step" directives
+- `lib/workflows/workflow-tracking.ts` - In-memory status tracking system
+- `app/api/workflows/*/route.ts` - Workflow API endpoints (for external/REST access)
+- `app/api/workflows/runs/route.ts` - Status API for polling
 - `components/WorkflowStatus.tsx` - UI component with smart polling
-- `app/api/chat/route.ts` - AI agent integration
-- `workflow.config.ts` - Workflow configuration
+- `components/ChatInterface.tsx` - Chat UI with workflow tool integration
+- `app/api/chat/route.ts` - AI agent integration with direct workflow execution
 
-## Migration Notes
+## Important Notes
 
-The previous custom implementation has been preserved in:
-- `lib/workflows/lead-workflows.ts` (old implementation)
-- `lib/workflows/workflow-executor.ts` (old DRY utilities)
+### Sleep/Delay Usage
+**Critical**: The `sleep()` function from the `workflow` package must be called directly within functions marked with `'use step'` or `'use workflow'`. Do not wrap it in helper functions, as sleep requires the workflow context to function correctly.
 
-These can be removed once the Vercel Workflow implementation is fully validated in production.
+### In-Memory Tracking Limitations
+The current tracking system (`lib/workflows/workflow-tracking.ts`) uses in-memory storage. This works for development but has limitations in production:
+- Won't persist across server restarts
+- Won't work across multiple serverless instances
+- For production, consider using:
+  - A database (PostgreSQL, MySQL, etc.)
+  - Redis for real-time updates
+  - Vercel Workflow's built-in tracking at useworkflow.dev
+
+### API Key Configuration
+The chat endpoint sanitizes API keys from the client config to remove any environment variable prefixes (e.g., `OPENROUTER_API_KEY=`) that might be accidentally included.

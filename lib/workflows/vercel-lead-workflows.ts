@@ -17,12 +17,6 @@ const STEP_DELAYS = {
   long: 3000,    // 3 seconds
 };
 
-const delay = async (ms: number) => {
-  if (ENABLE_DELAYS) {
-    await sleep(ms);
-  }
-};
-
 // ============================================================================
 // Step Functions (with "use step" directive for automatic retries)
 // ============================================================================
@@ -30,7 +24,9 @@ const delay = async (ms: number) => {
 async function validateEmailStep(lead: Lead): Promise<{ valid: boolean; reason?: string }> {
   'use step';
 
-  await delay(STEP_DELAYS.medium);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.medium);
+  }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const valid = emailRegex.test(lead.email);
@@ -44,7 +40,9 @@ async function validateEmailStep(lead: Lead): Promise<{ valid: boolean; reason?:
 async function validateDomainStep(email: string): Promise<{ valid: boolean; domain: string }> {
   'use step';
 
-  await delay(STEP_DELAYS.short);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.short);
+  }
 
   const domain = email.split('@')[1] || '';
   // In production, this would check DNS records
@@ -56,7 +54,9 @@ async function validateDomainStep(email: string): Promise<{ valid: boolean; doma
 async function finalizeValidationStep(): Promise<{ validated: boolean }> {
   'use step';
 
-  await delay(STEP_DELAYS.short);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.short);
+  }
 
   return { validated: true };
 }
@@ -64,7 +64,9 @@ async function finalizeValidationStep(): Promise<{ validated: boolean }> {
 async function enrichLeadStep(lead: Lead): Promise<Record<string, unknown>> {
   'use step';
 
-  await delay(STEP_DELAYS.long);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.long);
+  }
 
   // Simulate enrichment with external data
   const mockEnrichment = {
@@ -80,7 +82,9 @@ async function enrichLeadStep(lead: Lead): Promise<Record<string, unknown>> {
 async function enrichProfileStep(): Promise<{ enriched: boolean }> {
   'use step';
 
-  await delay(STEP_DELAYS.medium);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.medium);
+  }
 
   return { enriched: true };
 }
@@ -88,7 +92,9 @@ async function enrichProfileStep(): Promise<{ enriched: boolean }> {
 async function updateRecordStep(): Promise<{ updated: boolean }> {
   'use step';
 
-  await delay(STEP_DELAYS.short);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.short);
+  }
 
   return { updated: true };
 }
@@ -96,7 +102,9 @@ async function updateRecordStep(): Promise<{ updated: boolean }> {
 async function gatherLeadDataStep(lead: Lead): Promise<Record<string, unknown>> {
   'use step';
 
-  await delay(STEP_DELAYS.short);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.short);
+  }
 
   return lead.enrichmentDetails || {};
 }
@@ -104,7 +112,9 @@ async function gatherLeadDataStep(lead: Lead): Promise<Record<string, unknown>> 
 async function calculateScoreStep(lead: Lead, enrichmentData: Record<string, unknown>): Promise<number> {
   'use step';
 
-  await delay(STEP_DELAYS.medium);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.medium);
+  }
 
   let score = 0;
 
@@ -122,7 +132,9 @@ async function calculateScoreStep(lead: Lead, enrichmentData: Record<string, unk
 async function determineQualificationStep(score: number): Promise<{ qualified: boolean; threshold: number }> {
   'use step';
 
-  await delay(STEP_DELAYS.short);
+  if (ENABLE_DELAYS) {
+    await sleep(STEP_DELAYS.short);
+  }
 
   const qualified = score >= 60;
 
