@@ -40,11 +40,8 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
-    body: () => {
-      // Use a function to dynamically get the current config
-      const currentConfig = getStoredConfig();
-      return currentConfig ? { config: currentConfig } : {};
-    },
+    id: config ? `chat-${config.provider}-${config.model || 'default'}` : 'chat-default',
+    body: config ? { config } : {},
     onToolCall: ({ toolCall }) => {
       // Trigger refresh when any workflow tool is called
       const workflowTools = ['validateLead', 'enrichLead', 'scoreLead', 'processLead', 'submitLead'];
