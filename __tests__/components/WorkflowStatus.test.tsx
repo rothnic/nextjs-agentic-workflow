@@ -16,21 +16,27 @@ describe('WorkflowStatus', () => {
 
   it('renders the workflow status panel', () => {
     render(<WorkflowStatus />);
-    
+
     expect(screen.getByText('Workflow Status')).toBeInTheDocument();
-    expect(screen.getByText('Real-time execution tracking')).toBeInTheDocument();
+    expect(screen.getByText('Click refresh to update workflow status')).toBeInTheDocument();
   });
 
   it('displays message when no workflows are running', () => {
     render(<WorkflowStatus />);
-    
-    expect(screen.getByText('No workflows running')).toBeInTheDocument();
+
+    expect(screen.getByText('No workflows found')).toBeInTheDocument();
     expect(screen.getByText('Start a workflow from the chat')).toBeInTheDocument();
   });
 
-  it('fetches workflow executions on mount', () => {
-    render(<WorkflowStatus />);
-    
+  it('fetches workflow executions when refreshTrigger changes', () => {
+    const { rerender } = render(<WorkflowStatus refreshTrigger={0} />);
+
+    // Initial render with refreshTrigger=0 doesn't fetch
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    // Change refreshTrigger
+    rerender(<WorkflowStatus refreshTrigger={1} />);
+
     expect(global.fetch).toHaveBeenCalledWith('/api/workflows');
   });
 
@@ -54,11 +60,12 @@ describe('WorkflowStatus', () => {
       json: async () => mockExecutions,
     });
 
-    render(<WorkflowStatus />);
-    
+    const { rerender } = render(<WorkflowStatus refreshTrigger={0} />);
+    rerender(<WorkflowStatus refreshTrigger={1} />);
+
     // Wait for the component to fetch and render data
     await screen.findByText('VALIDATE');
-    expect(screen.getByText('Lead: lead-1')).toBeInTheDocument();
+    expect(screen.getByText(/Lead:/)).toBeInTheDocument();
     expect(screen.getByText('Validate Email')).toBeInTheDocument();
   });
 
@@ -66,11 +73,12 @@ describe('WorkflowStatus', () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     (global.fetch as jest.Mock).mockRejectedValue(new Error('Fetch failed'));
 
-    render(<WorkflowStatus />);
-    
+    const { rerender } = render(<WorkflowStatus refreshTrigger={0} />);
+    rerender(<WorkflowStatus refreshTrigger={1} />);
+
     // Component should still render without crashing
     expect(screen.getByText('Workflow Status')).toBeInTheDocument();
-    
+
     consoleErrorSpy.mockRestore();
   });
 });

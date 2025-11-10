@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { WorkflowExecution } from '@/lib/types/workflow';
+import { getStatusColor, getStatusIcon, formatDuration } from '@/lib/utils/workflow-display';
 
 interface WorkflowStatusProps {
   refreshTrigger?: number;
@@ -10,7 +11,7 @@ interface WorkflowStatusProps {
 export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   const fetchExecutions = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -25,48 +26,17 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
       setIsRefreshing(false);
     }
   }, []);
-  
+
   // Auto-refresh when refreshTrigger changes (when workflow is triggered from chat)
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
       fetchExecutions();
     }
   }, [refreshTrigger, fetchExecutions]);
-  
+
   const handleRefresh = useCallback(() => {
     fetchExecutions();
   }, [fetchExecutions]);
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'text-green-600 dark:text-green-400';
-      case 'running':
-        return 'text-blue-600 dark:text-blue-400';
-      case 'failed':
-        return 'text-red-600 dark:text-red-400';
-      default:
-        return 'text-gray-600 dark:text-gray-400';
-    }
-  };
-  
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '✓';
-      case 'running':
-        return '⟳';
-      case 'failed':
-        return '✗';
-      default:
-        return '○';
-    }
-  };
-  
-  const formatDuration = (start: number, end?: number) => {
-    const duration = (end || Date.now()) - start;
-    return `${(duration / 1000).toFixed(1)}s`;
-  };
   
   // Show only the most recent 5 executions
   const recentExecutions = executions.slice(-5).reverse();

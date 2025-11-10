@@ -12,6 +12,7 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^nanoid$': '<rootDir>/__mocks__/nanoid.js',
   },
   testMatch: [
     '**/__tests__/**/*.[jt]s?(x)',
@@ -23,9 +24,6 @@ const customJestConfig = {
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/.next/**',
-  ],
-  transformIgnorePatterns: [
-    'node_modules/(?!(nanoid)/)',
   ],
 }
 
