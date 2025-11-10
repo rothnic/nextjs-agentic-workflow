@@ -5,31 +5,89 @@ import { z } from 'zod';
 import { submitLead } from '@/lib/storage/leads';
 import { Lead } from '@/lib/types/workflow';
 import { nanoid } from 'nanoid';
-
-// Helper to trigger workflow via API
-async function triggerWorkflow(
-  workflowName: string,
-  leadId: string,
-  lead: Lead
-): Promise<{ success: boolean; runId?: string; result?: unknown; error?: string }> {
-  try {
-    const response = await fetch(`http://localhost:3000/api/workflows/${workflowName}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leadId, lead }),
-    });
-
-    return await response.json();
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Workflow execution failed',
-    };
-  }
-}
+import { validateLead, enrichLead, scoreLead, processLead } from '@/lib/workflows/vercel-lead-workflows';
+import {
+  createWorkflowRun,
+  updateWorkflowStatus,
+  updateStepStatus,
+} from '@/lib/workflows/workflow-tracking';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+// Helper to execute workflow directly with tracking
+async function executeWorkflowWithTracking(
+  workflowName: string,
+  leadId: string,
+  lead: Lead,
+  stepNames: string[]
+): Promise<{ success: boolean; runId: string; result?: unknown; error?: string }> {
+  let runId: string | undefined;
+
+  try {
+    console.log(`[Workflow] Starting ${workflowName} for lead ${leadId}`);
+
+    // Create workflow run for tracking
+    const run = createWorkflowRun(workflowName, leadId, stepNames);
+    runId = run.id;
+    console.log(`[Workflow] Created run ${runId} for ${workflowName}`);
+
+    // Mark as running
+    updateWorkflowStatus(runId, 'running');
+    updateStepStatus(runId, 0, 'running');
+
+    // Execute the appropriate workflow
+    let result: unknown;
+    switch (workflowName) {
+      case 'validate':
+        console.log(`[Workflow] Executing validateLead for ${leadId}`);
+        result = await validateLead(leadId, lead);
+        break;
+      case 'enrich':
+        console.log(`[Workflow] Executing enrichLead for ${leadId}`);
+        result = await enrichLead(leadId, lead);
+        break;
+      case 'score':
+        console.log(`[Workflow] Executing scoreLead for ${leadId}`);
+        result = await scoreLead(leadId, lead);
+        break;
+      case 'process':
+        console.log(`[Workflow] Executing processLead for ${leadId}`);
+        result = await processLead(leadId, lead);
+        break;
+      default:
+        throw new Error(`Unknown workflow: ${workflowName}`);
+    }
+
+    // Mark all steps as completed
+    for (let i = 0; i < stepNames.length; i++) {
+      updateStepStatus(runId, i, 'completed');
+    }
+
+    // Mark workflow as completed
+    updateWorkflowStatus(runId, 'completed', result);
+    console.log(`[Workflow] Completed ${workflowName} for lead ${leadId} with run ${runId}`);
+
+    return {
+      success: true,
+      runId,
+      result,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Workflow execution failed';
+    console.error(`[Workflow] Error in ${workflowName} for lead ${leadId}:`, error);
+
+    if (runId) {
+      updateWorkflowStatus(runId, 'failed', undefined, errorMessage);
+    }
+
+    return {
+      success: false,
+      runId: runId || 'unknown',
+      error: errorMessage,
+    };
+  }
+}
 
 // Configure LLM provider based on environment variables
 function getModel() {
@@ -50,28 +108,41 @@ function getModel() {
 }
 
 export async function POST(req: Request) {
-  const { messages, config } = await req.json();
-
-  // Use client config if provided, otherwise use server config
-  let model;
-  if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
-    const openrouter = createOpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
+  try {
+    const { messages, config } = await req.json();
+    console.log('[Chat] Received chat request with config:', {
+      provider: config?.provider,
+      hasApiKey: !!config?.apiKey,
+      model: config?.model
     });
-    model = openrouter(config.model);
-  } else if (config?.provider === 'openai' && config?.apiKey) {
-    const clientOpenAI = createOpenAI({
-      apiKey: config.apiKey,
-    });
-    model = clientOpenAI('gpt-4-turbo');
-  } else {
-    model = getModel();
-  }
 
-  const result = streamText({
-    model,
-    messages,
+    // Use client config if provided, otherwise use server config
+    let model;
+    if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
+      // Sanitize API key - remove any env var prefix if present
+      const apiKey = config.apiKey.replace(/^OPENROUTER_API_KEY=/, '');
+      console.log('[Chat] Using OpenRouter with model:', config.model);
+      const openrouter = createOpenAI({
+        apiKey,
+        baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
+      });
+      model = openrouter(config.model);
+    } else if (config?.provider === 'openai' && config?.apiKey) {
+      // Sanitize API key - remove any env var prefix if present
+      const apiKey = config.apiKey.replace(/^OPENAI_API_KEY=/, '');
+      console.log('[Chat] Using OpenAI');
+      const clientOpenAI = createOpenAI({
+        apiKey,
+      });
+      model = clientOpenAI('gpt-4-turbo');
+    } else {
+      console.log('[Chat] Using server-configured model');
+      model = getModel();
+    }
+
+    const result = streamText({
+      model,
+      messages,
     tools: {
       validateLead: tool({
         description: 'Validate a lead by checking email format and domain validity. This workflow has 3 steps: validate email format, validate domain, and finalize validation.',
@@ -91,7 +162,11 @@ export async function POST(req: Request) {
             phone,
           };
 
-          const result = await triggerWorkflow('validate-lead', leadId, lead);
+          const result = await executeWorkflowWithTracking('validate', leadId, lead, [
+            'Validate Email Format',
+            'Validate Domain',
+            'Finalize Validation',
+          ]);
 
           return {
             success: result.success,
@@ -120,7 +195,11 @@ export async function POST(req: Request) {
             company,
           };
 
-          const result = await triggerWorkflow('enrich-lead', leadId, lead);
+          const result = await executeWorkflowWithTracking('enrich', leadId, lead, [
+            'Fetch Company Data',
+            'Enrich Lead Profile',
+            'Update Lead Record',
+          ]);
 
           return {
             success: result.success,
@@ -157,7 +236,11 @@ export async function POST(req: Request) {
             enrichmentDetails,
           };
 
-          const result = await triggerWorkflow('score-lead', leadId, lead);
+          const result = await executeWorkflowWithTracking('score', leadId, lead, [
+            'Gather Lead Data',
+            'Calculate Score',
+            'Determine Qualification',
+          ]);
           const scoreData = result.result as { score?: number; qualified?: boolean } | undefined;
 
           return {
@@ -191,7 +274,11 @@ export async function POST(req: Request) {
             source,
           };
 
-          const result = await triggerWorkflow('process-lead', leadId, lead);
+          const result = await executeWorkflowWithTracking('process', leadId, lead, [
+            'Validate Lead',
+            'Enrich Lead',
+            'Score Lead',
+          ]);
 
           return {
             success: result.success,
@@ -229,7 +316,11 @@ export async function POST(req: Request) {
           const storageResult = submitLead(lead);
 
           // Automatically validate the submitted lead via workflow
-          const workflowResult = await triggerWorkflow('validate-lead', leadId, lead);
+          const workflowResult = await executeWorkflowWithTracking('validate', leadId, lead, [
+            'Validate Email Format',
+            'Validate Domain',
+            'Finalize Validation',
+          ]);
 
           return {
             success: storageResult.success && workflowResult.success,
@@ -255,7 +346,20 @@ When users provide lead information, you can:
 Each workflow execution happens in multiple steps, and users can track the progress in real-time through the UI.
 
 Always be clear about what action you're taking and what the results mean.`,
-  });
+    });
 
-  return result.toDataStreamResponse();
+    return result.toDataStreamResponse();
+  } catch (error) {
+    console.error('[Chat] Error in POST handler:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'An error occurred while processing your request',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
 }
