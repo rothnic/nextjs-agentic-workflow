@@ -5,86 +5,52 @@ import { z } from 'zod';
 import { submitLead } from '@/lib/storage/leads';
 import { Lead } from '@/lib/types/workflow';
 import { nanoid } from 'nanoid';
-import { validateLead, enrichLead, scoreLead, processLead } from '@/lib/workflows/vercel-lead-workflows';
-import {
-  createWorkflowRun,
-  updateWorkflowStatus,
-  updateStepStatus,
-} from '@/lib/workflows/workflow-tracking';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-// Helper to execute workflow directly with tracking
-async function executeWorkflowWithTracking(
+// Get the base URL for API calls (works in both dev and production)
+function getBaseUrl(): string {
+  // In production on Vercel
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // In development
+  return 'http://localhost:3000';
+}
+
+// Helper to trigger workflow via API with dynamic URL
+async function triggerWorkflow(
   workflowName: string,
   leadId: string,
-  lead: Lead,
-  stepNames: string[]
-): Promise<{ success: boolean; runId: string; result?: unknown; error?: string }> {
-  let runId: string | undefined;
-
+  lead: Lead
+): Promise<{ success: boolean; runId?: string; result?: unknown; error?: string }> {
   try {
-    console.log(`[Workflow] Starting ${workflowName} for lead ${leadId}`);
+    const baseUrl = getBaseUrl();
+    const url = `${baseUrl}/api/workflows/${workflowName}`;
 
-    // Create workflow run for tracking
-    const run = createWorkflowRun(workflowName, leadId, stepNames);
-    runId = run.id;
-    console.log(`[Workflow] Created run ${runId} for ${workflowName}`);
+    console.log(`[Workflow] Triggering ${workflowName} at ${url}`);
 
-    // Mark as running
-    updateWorkflowStatus(runId, 'running');
-    updateStepStatus(runId, 0, 'running');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId, lead }),
+    });
 
-    // Execute the appropriate workflow
-    let result: unknown;
-    switch (workflowName) {
-      case 'validate':
-        console.log(`[Workflow] Executing validateLead for ${leadId}`);
-        result = await validateLead(leadId, lead);
-        break;
-      case 'enrich':
-        console.log(`[Workflow] Executing enrichLead for ${leadId}`);
-        result = await enrichLead(leadId, lead);
-        break;
-      case 'score':
-        console.log(`[Workflow] Executing scoreLead for ${leadId}`);
-        result = await scoreLead(leadId, lead);
-        break;
-      case 'process':
-        console.log(`[Workflow] Executing processLead for ${leadId}`);
-        result = await processLead(leadId, lead);
-        break;
-      default:
-        throw new Error(`Unknown workflow: ${workflowName}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Workflow request failed: ${response.status} ${errorText}`);
     }
 
-    // Mark all steps as completed
-    for (let i = 0; i < stepNames.length; i++) {
-      updateStepStatus(runId, i, 'completed');
-    }
-
-    // Mark workflow as completed
-    updateWorkflowStatus(runId, 'completed', result);
-    console.log(`[Workflow] Completed ${workflowName} for lead ${leadId} with run ${runId}`);
-
-    return {
-      success: true,
-      runId,
-      result,
-    };
+    const result = await response.json();
+    console.log(`[Workflow] ${workflowName} triggered successfully:`, result);
+    return result;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Workflow execution failed';
-    console.error(`[Workflow] Error in ${workflowName} for lead ${leadId}:`, error);
-
-    if (runId) {
-      updateWorkflowStatus(runId, 'failed', undefined, errorMessage);
-    }
-
+    console.error(`[Workflow] Error triggering ${workflowName}:`, error);
     return {
       success: false,
-      runId: runId || 'unknown',
-      error: errorMessage,
+      error: error instanceof Error ? error.message : 'Workflow trigger failed',
     };
   }
 }
@@ -187,11 +153,7 @@ export async function POST(req: Request) {
             phone,
           };
 
-          const result = await executeWorkflowWithTracking('validate', leadId, lead, [
-            'Validate Email Format',
-            'Validate Domain',
-            'Finalize Validation',
-          ]);
+          const result = await triggerWorkflow('validate-lead', leadId, lead);
 
           return {
             success: result.success,
@@ -220,11 +182,7 @@ export async function POST(req: Request) {
             company,
           };
 
-          const result = await executeWorkflowWithTracking('enrich', leadId, lead, [
-            'Fetch Company Data',
-            'Enrich Lead Profile',
-            'Update Lead Record',
-          ]);
+          const result = await triggerWorkflow('enrich-lead', leadId, lead);
 
           return {
             success: result.success,
@@ -261,11 +219,7 @@ export async function POST(req: Request) {
             enrichmentDetails,
           };
 
-          const result = await executeWorkflowWithTracking('score', leadId, lead, [
-            'Gather Lead Data',
-            'Calculate Score',
-            'Determine Qualification',
-          ]);
+          const result = await triggerWorkflow('score-lead', leadId, lead);
           const scoreData = result.result as { score?: number; qualified?: boolean } | undefined;
 
           return {
@@ -299,11 +253,7 @@ export async function POST(req: Request) {
             source,
           };
 
-          const result = await executeWorkflowWithTracking('process', leadId, lead, [
-            'Validate Lead',
-            'Enrich Lead',
-            'Score Lead',
-          ]);
+          const result = await triggerWorkflow('process-lead', leadId, lead);
 
           return {
             success: result.success,
@@ -341,11 +291,7 @@ export async function POST(req: Request) {
           const storageResult = submitLead(lead);
 
           // Automatically validate the submitted lead via workflow
-          const workflowResult = await executeWorkflowWithTracking('validate', leadId, lead, [
-            'Validate Email Format',
-            'Validate Domain',
-            'Finalize Validation',
-          ]);
+          const workflowResult = await triggerWorkflow('validate-lead', leadId, lead);
 
           return {
             success: storageResult.success && workflowResult.success,
