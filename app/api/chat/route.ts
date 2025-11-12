@@ -32,9 +32,21 @@ async function triggerWorkflow(
 
     console.log(`[Workflow] Triggering ${workflowName} at ${url}`);
 
+    // Prepare headers with Vercel deployment protection bypass if available
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add Vercel automation bypass secret if available (for deployment protection)
+    // This allows server-side requests to bypass authentication when deployed on Vercel
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+      console.log(`[Workflow] Using Vercel automation bypass for internal request`);
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ leadId, lead }),
     });
 
