@@ -72,6 +72,8 @@ LLM_PROVIDER=openrouter
 | `OPENROUTER_BASE_URL` | OpenRouter API base URL | No | `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | Model ID to use with OpenRouter | Yes (if using OpenRouter) | - |
 | `LLM_PROVIDER` | Provider selection: `openai` or `openrouter` | No | `openai` |
+| `REDIS_URL` | Redis connection URL for persistent workflow tracking | Yes (for production) | - |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Bypass token for Vercel deployment protection | Yes (for Vercel deployments with protection) | - |
 
 ### Development
 
@@ -88,6 +90,14 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 npm start
 ```
+
+### Deployment
+
+For deploying to Vercel or other platforms, see the [Deployment Guide](./DEPLOYMENT.md) for important information about:
+- Setting up Redis for persistent workflow tracking
+- Setting up Vercel deployment protection bypass
+- Configuring environment variables for production
+- Troubleshooting 401 authentication errors
 
 ## Usage
 
