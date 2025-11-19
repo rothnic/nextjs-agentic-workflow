@@ -72,7 +72,7 @@ LLM_PROVIDER=openrouter
 | `OPENROUTER_BASE_URL` | OpenRouter API base URL | No | `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | Model ID to use with OpenRouter | Yes (if using OpenRouter) | - |
 | `LLM_PROVIDER` | Provider selection: `openai` or `openrouter` | No | `openai` |
-| `KV_REST_API_REDIS_URL` | Redis connection URL for persistent workflow tracking | Yes (for production) | - |
+| `REDIS_URL` | Redis connection URL for persistent workflow tracking | Yes (for production) | - |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Bypass token for Vercel deployment protection | Yes (for Vercel deployments with protection) | - |
 
 ### Development

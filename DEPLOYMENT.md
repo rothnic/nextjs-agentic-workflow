@@ -28,13 +28,13 @@ You can use any Redis provider. Recommended options:
 Add the following environment variable to your Vercel project:
 
 **Environment Variable:**
-- `KV_REST_API_REDIS_URL` - Your Redis connection URL (includes authentication)
+- `REDIS_URL` - Your Redis connection URL (includes authentication)
 
 **Format:** `redis://username:password@hostname:port` or `rediss://...` for TLS
 
 **In Vercel:**
 1. Go to Project Settings → Environment Variables
-2. Add `KV_REST_API_REDIS_URL` with your Redis URL
+2. Add `REDIS_URL` with your Redis URL
 3. Select all environments (Production, Preview, Development)
 4. Save
 
@@ -44,7 +44,7 @@ The application will automatically detect and use Redis when this variable is pr
 
 For local development, the application falls back to in-memory storage when Redis is not available. To test with Redis locally:
 
-1. Copy the `KV_REST_API_REDIS_URL` from your Vercel project
+1. Copy the `REDIS_URL` from your Vercel project
 2. Add it to your `.env.local` file
 3. Run `npm run dev`
 
