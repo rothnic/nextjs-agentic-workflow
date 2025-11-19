@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create workflow run for tracking
-    const run = createWorkflowRun('validate', leadId, [
+    const run = await createWorkflowRun('validate', leadId, [
       'Validate Email Format',
       'Validate Domain',
       'Finalize Validation',
@@ -32,20 +32,20 @@ export async function POST(request: NextRequest) {
     runId = run.id;
 
     // Mark as running
-    updateWorkflowStatus(runId, 'running');
+    await updateWorkflowStatus(runId, 'running');
 
     // Execute the workflow with step tracking
-    updateStepStatus(runId, 0, 'running');
+    await updateStepStatus(runId, 0, 'running');
 
     const result = await validateLead(leadId, lead);
 
     // Mark all steps as completed (Vercel Workflow handles the internals)
-    updateStepStatus(runId, 0, 'completed');
-    updateStepStatus(runId, 1, 'completed');
-    updateStepStatus(runId, 2, 'completed');
+    await updateStepStatus(runId, 0, 'completed');
+    await updateStepStatus(runId, 1, 'completed');
+    await updateStepStatus(runId, 2, 'completed');
 
     // Mark workflow as completed
-    updateWorkflowStatus(runId, 'completed', result);
+    await updateWorkflowStatus(runId, 'completed', result);
 
     return Response.json({
       success: true,
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     console.error('Validation workflow error:', error);
 
     if (runId) {
-      updateWorkflowStatus(
+      await updateWorkflowStatus(
         runId,
         'failed',
         undefined,

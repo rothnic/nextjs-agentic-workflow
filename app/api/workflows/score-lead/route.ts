@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create workflow run for tracking
-    const run = createWorkflowRun('score', leadId, [
+    const run = await createWorkflowRun('score', leadId, [
       'Gather Lead Data',
       'Calculate Score',
       'Determine Qualification',
@@ -32,19 +32,19 @@ export async function POST(request: NextRequest) {
     runId = run.id;
 
     // Mark as running
-    updateWorkflowStatus(runId, 'running');
-    updateStepStatus(runId, 0, 'running');
+    await updateWorkflowStatus(runId, 'running');
+    await updateStepStatus(runId, 0, 'running');
 
     // Execute the workflow
     const result = await scoreLead(leadId, lead);
 
     // Mark all steps as completed
-    updateStepStatus(runId, 0, 'completed');
-    updateStepStatus(runId, 1, 'completed');
-    updateStepStatus(runId, 2, 'completed');
+    await updateStepStatus(runId, 0, 'completed');
+    await updateStepStatus(runId, 1, 'completed');
+    await updateStepStatus(runId, 2, 'completed');
 
     // Mark workflow as completed
-    updateWorkflowStatus(runId, 'completed', result);
+    await updateWorkflowStatus(runId, 'completed', result);
 
     return Response.json({
       success: true,
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     console.error('Scoring workflow error:', error);
 
     if (runId) {
-      updateWorkflowStatus(
+      await updateWorkflowStatus(
         runId,
         'failed',
         undefined,

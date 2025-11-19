@@ -1,5 +1,44 @@
 # Deployment Guide
 
+## Vercel KV Setup (Required for Persistent Workflow Tracking)
+
+The application uses Vercel KV (Redis) to store workflow tracking data persistently across serverless function invocations. This ensures workflow status is visible in the UI even after the workflow completes.
+
+### Step 1: Create a Vercel KV Database
+
+1. Go to your Vercel project dashboard
+2. Navigate to the **Storage** tab
+3. Click **Create Database**
+4. Select **KV** (Redis)
+5. Give it a name (e.g., `nextjs-workflow-kv`)
+6. Choose your region
+7. Click **Create**
+
+### Step 2: Connect KV to Your Project
+
+Vercel will automatically add the required environment variables to your project:
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+- `KV_REST_API_READ_ONLY_TOKEN`
+- `KV_URL`
+
+No manual configuration needed! The application will automatically detect and use KV when these variables are present.
+
+### Local Development
+
+For local development, the application falls back to in-memory storage when KV is not available. To test with KV locally:
+
+1. Copy the environment variables from your Vercel project
+2. Add them to your `.env.local` file
+3. Run `npm run dev`
+
+### Free Tier
+
+Vercel KV has a generous free tier:
+- **30 MB** storage
+- **100,000** monthly requests
+- Perfect for development and small applications
+
 ## Vercel Deployment Protection
 
 ### Issue
