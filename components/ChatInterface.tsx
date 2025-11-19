@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { getStoredConfig } from '@/lib/config/llm-storage';
 import { LLMConfig } from '@/lib/types/llm-config';
 
@@ -29,13 +29,12 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
-  const [config, setConfig] = useState<LLMConfig | null>(null);
-  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
-
-  useEffect(() => {
-    const loadedConfig = getStoredConfig();
-    setConfig(loadedConfig);
-    setIsConfigLoaded(true);
+  // Initialize config once on mount, using useMemo to avoid re-reads
+  const config = useMemo<LLMConfig | null>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredConfig();
+    }
+    return null;
   }, []);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
@@ -56,15 +55,6 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-  
-  // Show loading state while config is being loaded
-  if (!isConfigLoaded) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
   
   return (
     <div className="flex flex-col h-full">

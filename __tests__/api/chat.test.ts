@@ -5,6 +5,8 @@
  * Full integration testing with actual LLM calls would require live API keys.
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 import { POST } from '@/app/api/chat/route';
 
 // Mock the AI SDK

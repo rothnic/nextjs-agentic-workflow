@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server';
 import { getAllWorkflowRuns } from '@/lib/workflows/workflow-tracking';
 
 /**
  * GET /api/workflows/runs - Get all workflow runs
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('[Workflow Runs API] Fetching all workflow runs...');
     const runs = await getAllWorkflowRuns();

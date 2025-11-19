@@ -42,7 +42,6 @@ const listeners = new Set<WorkflowListener>();
 let redisClient: RedisClient | null = null;
 let redisConnectionPromise: Promise<RedisClient | null> | null = null;
 let redisConnectionAttempted = false;
-let redisLastError: Error | null = null;
 
 // Initialize and connect to Redis client
 async function getRedisClient(): Promise<RedisClient | null> {
@@ -97,12 +96,10 @@ async function getRedisClient(): Promise<RedisClient | null> {
 
       client.on('ready', () => {
         console.log('[Workflow Tracking] Redis connection ready!');
-        redisLastError = null;
       });
 
       client.on('error', (error) => {
         console.error('[Workflow Tracking] Redis connection error:', error.message);
-        redisLastError = error;
       });
 
       client.on('end', () => {
@@ -125,19 +122,12 @@ async function getRedisClient(): Promise<RedisClient | null> {
     } catch (error) {
       console.error('[Workflow Tracking] Redis connection failed:', error instanceof Error ? error.message : error);
       console.warn('[Workflow Tracking] Falling back to in-memory storage (data will not persist)');
-      redisLastError = error instanceof Error ? error : new Error(String(error));
       redisConnectionPromise = null; // Clear the promise
       return null;
     }
   })();
 
   return redisConnectionPromise;
-}
-
-// Check if Redis is available and ready to use
-async function isRedisAvailable(): Promise<boolean> {
-  const client = await getRedisClient();
-  return client !== null && client.isOpen;
 }
 
 /**

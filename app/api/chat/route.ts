@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { submitLead } from '@/lib/storage/leads';
-import { Lead } from '@/lib/types/workflow';
+import { Lead, WorkflowExecution, WorkflowStep } from '@/lib/types/workflow';
 import { nanoid } from 'nanoid';
 
 // Allow streaming responses up to 30 seconds
@@ -361,18 +361,17 @@ export async function POST(req: Request) {
             return {
               success: true,
               count: recentWorkflows.length,
-              workflows: recentWorkflows.map((w: any) => ({
+              workflows: recentWorkflows.map((w: WorkflowExecution) => ({
                 id: w.id,
                 workflowName: w.workflowName,
                 leadId: w.leadId,
                 status: w.status,
                 startTime: new Date(w.startTime).toLocaleString(),
                 endTime: w.endTime ? new Date(w.endTime).toLocaleString() : 'In progress',
-                steps: w.steps.map((s: any) => ({
+                steps: w.steps.map((s: WorkflowStep) => ({
                   name: s.name,
                   status: s.status,
                 })),
-                error: w.error,
               })),
             };
           } catch (error) {

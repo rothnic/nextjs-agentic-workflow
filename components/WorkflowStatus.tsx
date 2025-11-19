@@ -22,6 +22,18 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const pollingStartTimeRef = useRef<number>(0);
   const emptyRequestCountRef = useRef<number>(0);
 
+  const stopPolling = useCallback(() => {
+    setIsPolling(false);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+  }, []);
+
   const fetchRuns = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -57,19 +69,7 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
       setIsRefreshing(false);
     }
     return [];
-  }, []);
-
-  const stopPolling = useCallback(() => {
-    setIsPolling(false);
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    if (pollingTimeoutRef.current) {
-      clearTimeout(pollingTimeoutRef.current);
-      pollingTimeoutRef.current = null;
-    }
-  }, []);
+  }, [stopPolling]);
 
   const startPolling = useCallback(() => {
     // Don't start if already polling or in idle state
