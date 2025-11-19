@@ -5,19 +5,11 @@
  * Each workflow uses the "use workflow" directive for durability.
  * Each step uses the "use step" directive for automatic retries.
  *
- * IMPORTANT: sleep() must be called directly within workflow functions.
- * It accepts milliseconds as a number.
+ * IMPORTANT: sleep() must be called with explicit string values like "2 seconds".
  */
 
 import { Lead } from '../types/workflow';
 import { sleep } from 'workflow';
-
-// Delays in milliseconds for visibility
-const STEP_DELAYS = {
-  short: 2000,   // 2 seconds
-  medium: 2500,  // 2.5 seconds
-  long: 3000,    // 3 seconds
-};
 
 // ============================================================================
 // Step Functions (with "use step" directive for automatic retries)
@@ -118,17 +110,17 @@ export async function validateLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const emailResult = await validateEmailStep(lead);
-  await sleep(STEP_DELAYS.medium);
+  await sleep("3 seconds");
 
   if (!emailResult.valid) {
     throw new Error(emailResult.reason || 'Email validation failed');
   }
 
   const domainResult = await validateDomainStep(lead.email);
-  await sleep(STEP_DELAYS.short);
+  await sleep("2 seconds");
 
   const finalResult = await finalizeValidationStep();
-  await sleep(STEP_DELAYS.short);
+  await sleep("2 seconds");
 
   return {
     validated: true,
@@ -145,13 +137,13 @@ export async function enrichLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const companyData = await enrichLeadStep(lead);
-  await sleep(STEP_DELAYS.long);
+  await sleep("3 seconds");
 
   const profileResult = await enrichProfileStep();
-  await sleep(STEP_DELAYS.medium);
+  await sleep("3 seconds");
 
   const recordResult = await updateRecordStep();
-  await sleep(STEP_DELAYS.short);
+  await sleep("2 seconds");
 
   return {
     ...companyData,
@@ -167,13 +159,13 @@ export async function scoreLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const enrichmentData = await gatherLeadDataStep(lead);
-  await sleep(STEP_DELAYS.short);
+  await sleep("2 seconds");
 
   const score = await calculateScoreStep(lead, enrichmentData);
-  await sleep(STEP_DELAYS.medium);
+  await sleep("3 seconds");
 
   const qualificationResult = await determineQualificationStep(score);
-  await sleep(STEP_DELAYS.short);
+  await sleep("2 seconds");
 
   return {
     score,

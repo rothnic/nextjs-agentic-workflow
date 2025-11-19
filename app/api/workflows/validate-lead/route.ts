@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { start } from 'workflow/api';
 import { validateLead } from '@/lib/workflows/vercel-lead-workflows';
 import { Lead } from '@/lib/types/workflow';
 import {
@@ -34,10 +35,10 @@ export async function POST(request: NextRequest) {
     // Mark as running
     await updateWorkflowStatus(runId, 'running');
 
-    // Execute the workflow with step tracking
+    // Execute the workflow using start() from workflow/api
     await updateStepStatus(runId, 0, 'running');
 
-    const result = await validateLead(leadId, lead);
+    const result = await start(validateLead, [leadId, lead]);
 
     // Mark all steps as completed (Vercel Workflow handles the internals)
     await updateStepStatus(runId, 0, 'completed');
