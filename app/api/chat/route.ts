@@ -279,7 +279,7 @@ export async function POST(req: Request) {
       }),
       
       submitLead: tool({
-        description: 'Submit a new lead to the system. Use this when a user wants to add or create a new lead. This will also validate the lead automatically.',
+        description: 'Submit a new lead to the system and process it through the complete workflow (validate, enrich, score). Use this when a user wants to add or create a new lead.',
         parameters: z.object({
           email: z.string().email().describe('Email address'),
           name: z.string().describe('Name of the lead'),
@@ -302,16 +302,16 @@ export async function POST(req: Request) {
           // Submit the lead to storage
           const storageResult = submitLead(lead);
 
-          // Automatically validate the submitted lead via workflow
-          const workflowResult = await triggerWorkflow('validate-lead', leadId, lead);
+          // Automatically process the submitted lead through complete workflow (validate, enrich, score)
+          const workflowResult = await triggerWorkflow('process-lead', leadId, lead);
 
           return {
             success: storageResult.success && workflowResult.success,
             leadId: storageResult.leadId,
             runId: workflowResult.runId,
             message: workflowResult.success
-              ? `Lead ${name} (${email}) submitted and validation workflow started`
-              : `Lead submitted but validation failed: ${workflowResult.error}`,
+              ? `Lead ${name} (${email}) submitted and complete processing workflow started (validate, enrich, score)`
+              : `Lead submitted but processing failed: ${workflowResult.error}`,
             lead,
           };
         },
