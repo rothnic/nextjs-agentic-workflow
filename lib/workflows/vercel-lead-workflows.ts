@@ -5,20 +5,13 @@
  * Each workflow uses the "use workflow" directive for durability.
  * Each step uses the "use step" directive for automatic retries.
  *
- * IMPORTANT: sleep() must be called within workflow functions, not step functions.
- * Delays are added between steps in the workflow functions for visibility.
+ * IMPORTANT: sleep() must be called directly within step/workflow functions
+ * without conditional wrappers or helper functions.
  */
 
 import { Lead } from '../types/workflow';
-import { sleep } from 'workflow';
 
-// Configurable delays for visibility (can be disabled via env var)
-const ENABLE_DELAYS = process.env.WORKFLOW_ENABLE_DELAYS !== 'false';
-const STEP_DELAYS = {
-  short: 2000,   // 2 seconds
-  medium: 2500,  // 2.5 seconds
-  long: 3000,    // 3 seconds
-};
+// No sleep import needed - removing delays for now
 
 // ============================================================================
 // Step Functions (with "use step" directive for automatic retries)
@@ -119,17 +112,13 @@ export async function validateLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const emailResult = await validateEmailStep(lead);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
 
   if (!emailResult.valid) {
     throw new Error(emailResult.reason || 'Email validation failed');
   }
 
   const domainResult = await validateDomainStep(lead.email);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
-
   const finalResult = await finalizeValidationStep();
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     validated: true,
@@ -146,13 +135,8 @@ export async function enrichLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const companyData = await enrichLeadStep(lead);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.long);
-
   const profileResult = await enrichProfileStep();
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
-
   const recordResult = await updateRecordStep();
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     ...companyData,
@@ -168,13 +152,8 @@ export async function scoreLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const enrichmentData = await gatherLeadDataStep(lead);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
-
   const score = await calculateScoreStep(lead, enrichmentData);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
-
   const qualificationResult = await determineQualificationStep(score);
-  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     score,
