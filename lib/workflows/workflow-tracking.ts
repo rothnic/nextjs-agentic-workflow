@@ -2,11 +2,11 @@
  * Workflow tracking for monitoring execution status
  *
  * This module provides persistent tracking of workflow executions
- * using Vercel KV (Redis) with in-memory fallback for local development.
+ * using Redis with in-memory fallback for local development.
  */
 
 import { nanoid } from 'nanoid';
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 
 export interface WorkflowRun {
   id: string;
@@ -36,9 +36,44 @@ const workflowRuns = new Map<string, WorkflowRun>();
 type WorkflowListener = (run: WorkflowRun) => void;
 const listeners = new Set<WorkflowListener>();
 
-// Check if KV is available
-const isKVAvailable = () => {
-  return process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
+// Redis client instance
+let redisClient: Redis | null = null;
+
+// Initialize Redis client
+function getRedisClient(): Redis | null {
+  if (!process.env.KV_REST_API_REDIS_URL) {
+    return null;
+  }
+
+  if (!redisClient) {
+    try {
+      redisClient = new Redis(process.env.KV_REST_API_REDIS_URL, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: false,
+        lazyConnect: true,
+      });
+
+      redisClient.on('error', (error) => {
+        console.error('[Workflow Tracking] Redis connection error:', error);
+      });
+
+      // Connect to Redis
+      redisClient.connect().catch((error) => {
+        console.error('[Workflow Tracking] Redis connect error:', error);
+      });
+    } catch (error) {
+      console.error('[Workflow Tracking] Redis initialization error:', error);
+      return null;
+    }
+  }
+
+  return redisClient;
+}
+
+// Check if Redis is available
+const isRedisAvailable = () => {
+  const client = getRedisClient();
+  return client !== null && client.status === 'ready';
 };
 
 /**
@@ -78,13 +113,14 @@ export async function createWorkflowRun(
     })),
   };
 
-  // Store in both KV and in-memory
-  if (isKVAvailable()) {
+  // Store in Redis if available
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      await kv.set(`workflow:${runId}`, run);
-      await kv.zadd('workflow:runs', { score: run.startTime, member: runId });
+      await redis.set(`workflow:${runId}`, JSON.stringify(run));
+      await redis.zadd('workflow:runs', run.startTime, runId);
     } catch (error) {
-      console.error('[Workflow Tracking] KV storage error:', error);
+      console.error('[Workflow Tracking] Redis storage error:', error);
       // Fall back to in-memory
       workflowRuns.set(runId, run);
     }
@@ -108,11 +144,13 @@ export async function updateWorkflowStatus(
 ) {
   let run: WorkflowRun | undefined | null;
 
-  if (isKVAvailable()) {
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      run = await kv.get<WorkflowRun>(`workflow:${runId}`);
+      const data = await redis.get(`workflow:${runId}`);
+      run = data ? JSON.parse(data) : undefined;
     } catch (error) {
-      console.error('[Workflow Tracking] KV get error:', error);
+      console.error('[Workflow Tracking] Redis get error:', error);
       run = workflowRuns.get(runId);
     }
   } else {
@@ -128,12 +166,12 @@ export async function updateWorkflowStatus(
     run.endTime = Date.now();
   }
 
-  // Update in both KV and in-memory
-  if (isKVAvailable()) {
+  // Update in Redis if available
+  if (redis && isRedisAvailable()) {
     try {
-      await kv.set(`workflow:${runId}`, run);
+      await redis.set(`workflow:${runId}`, JSON.stringify(run));
     } catch (error) {
-      console.error('[Workflow Tracking] KV set error:', error);
+      console.error('[Workflow Tracking] Redis set error:', error);
       workflowRuns.set(runId, run);
     }
   } else {
@@ -154,11 +192,13 @@ export async function updateStepStatus(
 ) {
   let run: WorkflowRun | undefined | null;
 
-  if (isKVAvailable()) {
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      run = await kv.get<WorkflowRun>(`workflow:${runId}`);
+      const data = await redis.get(`workflow:${runId}`);
+      run = data ? JSON.parse(data) : undefined;
     } catch (error) {
-      console.error('[Workflow Tracking] KV get error:', error);
+      console.error('[Workflow Tracking] Redis get error:', error);
       run = workflowRuns.get(runId);
     }
   } else {
@@ -177,12 +217,12 @@ export async function updateStepStatus(
     if (result !== undefined) step.result = result;
   }
 
-  // Update in both KV and in-memory
-  if (isKVAvailable()) {
+  // Update in Redis if available
+  if (redis && isRedisAvailable()) {
     try {
-      await kv.set(`workflow:${runId}`, run);
+      await redis.set(`workflow:${runId}`, JSON.stringify(run));
     } catch (error) {
-      console.error('[Workflow Tracking] KV set error:', error);
+      console.error('[Workflow Tracking] Redis set error:', error);
       workflowRuns.set(runId, run);
     }
   } else {
@@ -196,11 +236,13 @@ export async function updateStepStatus(
  * Get a workflow run by ID
  */
 export async function getWorkflowRun(runId: string): Promise<WorkflowRun | undefined | null> {
-  if (isKVAvailable()) {
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      return await kv.get<WorkflowRun>(`workflow:${runId}`);
+      const data = await redis.get(`workflow:${runId}`);
+      return data ? JSON.parse(data) : undefined;
     } catch (error) {
-      console.error('[Workflow Tracking] KV get error:', error);
+      console.error('[Workflow Tracking] Redis get error:', error);
       return workflowRuns.get(runId);
     }
   }
@@ -211,20 +253,23 @@ export async function getWorkflowRun(runId: string): Promise<WorkflowRun | undef
  * Get all workflow runs
  */
 export async function getAllWorkflowRuns(): Promise<WorkflowRun[]> {
-  if (isKVAvailable()) {
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      // Get run IDs from sorted set
-      const runIds = await kv.zrange<string[]>('workflow:runs', 0, -1, { rev: true });
+      // Get run IDs from sorted set (newest first)
+      const runIds = await redis.zrevrange('workflow:runs', 0, -1);
 
       // Fetch all runs
       const runs: WorkflowRun[] = [];
       for (const runId of runIds) {
-        const run = await kv.get<WorkflowRun>(`workflow:${runId}`);
-        if (run) runs.push(run);
+        const data = await redis.get(`workflow:${runId}`);
+        if (data) {
+          runs.push(JSON.parse(data));
+        }
       }
       return runs;
     } catch (error) {
-      console.error('[Workflow Tracking] KV get all error:', error);
+      console.error('[Workflow Tracking] Redis get all error:', error);
       return Array.from(workflowRuns.values());
     }
   }
@@ -235,20 +280,23 @@ export async function getAllWorkflowRuns(): Promise<WorkflowRun[]> {
  * Get recent workflow runs (last N runs)
  */
 export async function getRecentWorkflowRuns(limit: number = 10): Promise<WorkflowRun[]> {
-  if (isKVAvailable()) {
+  const redis = getRedisClient();
+  if (redis && isRedisAvailable()) {
     try {
-      // Get recent run IDs from sorted set
-      const runIds = await kv.zrange<string[]>('workflow:runs', 0, limit - 1, { rev: true });
+      // Get recent run IDs from sorted set (newest first)
+      const runIds = await redis.zrevrange('workflow:runs', 0, limit - 1);
 
       // Fetch runs
       const runs: WorkflowRun[] = [];
       for (const runId of runIds) {
-        const run = await kv.get<WorkflowRun>(`workflow:${runId}`);
-        if (run) runs.push(run);
+        const data = await redis.get(`workflow:${runId}`);
+        if (data) {
+          runs.push(JSON.parse(data));
+        }
       }
       return runs;
     } catch (error) {
-      console.error('[Workflow Tracking] KV get recent error:', error);
+      console.error('[Workflow Tracking] Redis get recent error:', error);
       return getRecentWorkflowRunsFromMemory(limit);
     }
   }

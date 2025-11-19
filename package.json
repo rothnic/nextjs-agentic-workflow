@@ -14,8 +14,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^1.0.0",
     "@ai-sdk/react": "^1.0.0",
-    "@vercel/kv": "^3.0.0",
     "ai": "^4.0.0",
+    "ioredis": "^5.8.2",
     "nanoid": "^5.0.8",
     "next": "16.0.1",
     "react": "19.2.0",

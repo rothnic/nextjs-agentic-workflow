@@ -1,42 +1,58 @@
 # Deployment Guide
 
-## Vercel KV Setup (Required for Persistent Workflow Tracking)
+## Redis Setup (Required for Persistent Workflow Tracking)
 
-The application uses Vercel KV (Redis) to store workflow tracking data persistently across serverless function invocations. This ensures workflow status is visible in the UI even after the workflow completes.
+The application uses Redis to store workflow tracking data persistently across serverless function invocations. This ensures workflow status is visible in the UI even after the workflow completes.
 
-### Step 1: Create a Vercel KV Database
+### Step 1: Set Up Redis Database
 
+You can use any Redis provider. Recommended options:
+
+#### Option 1: Vercel Redis (Recommended)
 1. Go to your Vercel project dashboard
 2. Navigate to the **Storage** tab
 3. Click **Create Database**
-4. Select **KV** (Redis)
-5. Give it a name (e.g., `nextjs-workflow-kv`)
+4. Select **Redis**
+5. Give it a name (e.g., `nextjs-workflow-redis`)
 6. Choose your region
 7. Click **Create**
 
-### Step 2: Connect KV to Your Project
+#### Option 2: Upstash Redis (Free Tier Available)
+1. Go to [upstash.com](https://upstash.com)
+2. Create a free account
+3. Create a new Redis database
+4. Copy your Redis URL with authentication
 
-Vercel will automatically add the required environment variables to your project:
-- `KV_REST_API_URL`
-- `KV_REST_API_TOKEN`
-- `KV_REST_API_READ_ONLY_TOKEN`
-- `KV_URL`
+### Step 2: Configure Environment Variable
 
-No manual configuration needed! The application will automatically detect and use KV when these variables are present.
+Add the following environment variable to your Vercel project:
+
+**Environment Variable:**
+- `KV_REST_API_REDIS_URL` - Your Redis connection URL (includes authentication)
+
+**Format:** `redis://username:password@hostname:port` or `rediss://...` for TLS
+
+**In Vercel:**
+1. Go to Project Settings → Environment Variables
+2. Add `KV_REST_API_REDIS_URL` with your Redis URL
+3. Select all environments (Production, Preview, Development)
+4. Save
+
+The application will automatically detect and use Redis when this variable is present.
 
 ### Local Development
 
-For local development, the application falls back to in-memory storage when KV is not available. To test with KV locally:
+For local development, the application falls back to in-memory storage when Redis is not available. To test with Redis locally:
 
-1. Copy the environment variables from your Vercel project
-2. Add them to your `.env.local` file
+1. Copy the `KV_REST_API_REDIS_URL` from your Vercel project
+2. Add it to your `.env.local` file
 3. Run `npm run dev`
 
-### Free Tier
+### Free Tier Options
 
-Vercel KV has a generous free tier:
-- **30 MB** storage
-- **100,000** monthly requests
+**Upstash Redis Free Tier:**
+- **256 MB** storage
+- **10,000** daily commands
 - Perfect for development and small applications
 
 ## Vercel Deployment Protection
