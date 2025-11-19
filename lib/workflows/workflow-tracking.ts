@@ -38,31 +38,73 @@ const listeners = new Set<WorkflowListener>();
 
 // Redis client instance
 let redisClient: Redis | null = null;
+let redisConnectionAttempted = false;
+let redisLastError: Error | null = null;
 
 // Initialize Redis client
 function getRedisClient(): Redis | null {
   if (!process.env.KV_REST_API_REDIS_URL) {
+    if (!redisConnectionAttempted) {
+      console.warn('[Workflow Tracking] KV_REST_API_REDIS_URL not set - using in-memory storage');
+      console.warn('[Workflow Tracking] WARNING: In-memory storage does not persist across serverless function invocations');
+      console.warn('[Workflow Tracking] Please set KV_REST_API_REDIS_URL environment variable for persistent storage');
+      redisConnectionAttempted = true;
+    }
     return null;
   }
 
   if (!redisClient) {
     try {
+      // Extract connection details for logging (without credentials)
+      const urlObj = new URL(process.env.KV_REST_API_REDIS_URL);
+      const sanitizedUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+      console.log('[Workflow Tracking] Attempting Redis connection to:', sanitizedUrl);
+
       redisClient = new Redis(process.env.KV_REST_API_REDIS_URL, {
         maxRetriesPerRequest: 3,
-        enableReadyCheck: false,
+        retryStrategy(times) {
+          const delay = Math.min(times * 50, 2000);
+          console.log(`[Workflow Tracking] Redis retry attempt ${times}, delay: ${delay}ms`);
+          return delay;
+        },
+        enableReadyCheck: true,
+        connectTimeout: 10000, // 10 second timeout
         lazyConnect: true,
       });
 
+      redisClient.on('connect', () => {
+        console.log('[Workflow Tracking] Redis client connecting...');
+      });
+
+      redisClient.on('ready', () => {
+        console.log('[Workflow Tracking] Redis connection ready!');
+        redisLastError = null;
+      });
+
       redisClient.on('error', (error) => {
-        console.error('[Workflow Tracking] Redis connection error:', error);
+        console.error('[Workflow Tracking] Redis connection error:', error.message);
+        redisLastError = error;
+      });
+
+      redisClient.on('close', () => {
+        console.warn('[Workflow Tracking] Redis connection closed');
+      });
+
+      redisClient.on('reconnecting', () => {
+        console.log('[Workflow Tracking] Redis reconnecting...');
       });
 
       // Connect to Redis
       redisClient.connect().catch((error) => {
-        console.error('[Workflow Tracking] Redis connect error:', error);
+        console.error('[Workflow Tracking] Redis connect failed:', error.message);
+        console.warn('[Workflow Tracking] Falling back to in-memory storage (data will not persist)');
+        redisLastError = error;
       });
+
+      redisConnectionAttempted = true;
     } catch (error) {
-      console.error('[Workflow Tracking] Redis initialization error:', error);
+      console.error('[Workflow Tracking] Redis initialization error:', error instanceof Error ? error.message : error);
+      console.warn('[Workflow Tracking] Falling back to in-memory storage (data will not persist)');
       return null;
     }
   }
@@ -70,10 +112,31 @@ function getRedisClient(): Redis | null {
   return redisClient;
 }
 
-// Check if Redis is available
+// Check if Redis is available and ready to use
 const isRedisAvailable = () => {
   const client = getRedisClient();
-  return client !== null && client.status === 'ready';
+  if (!client) {
+    return false;
+  }
+
+  const status = client.status;
+  if (status === 'ready') {
+    return true;
+  }
+
+  // Log status for debugging
+  if (status === 'connecting' || status === 'connect') {
+    console.log('[Workflow Tracking] Redis status: connecting...');
+  } else if (status === 'reconnecting') {
+    console.log('[Workflow Tracking] Redis status: reconnecting...');
+  } else if (status === 'close' || status === 'end') {
+    console.warn('[Workflow Tracking] Redis status: closed');
+    if (redisLastError) {
+      console.warn('[Workflow Tracking] Last Redis error:', redisLastError.message);
+    }
+  }
+
+  return false;
 };
 
 /**
@@ -115,16 +178,25 @@ export async function createWorkflowRun(
 
   // Store in Redis if available
   const redis = getRedisClient();
-  if (redis && isRedisAvailable()) {
+  const redisReady = isRedisAvailable();
+
+  console.log('[Workflow Tracking] Creating workflow run:', { runId, workflowName, leadId, redisReady });
+
+  if (redis && redisReady) {
     try {
       await redis.set(`workflow:${runId}`, JSON.stringify(run));
       await redis.zadd('workflow:runs', run.startTime, runId);
+      console.log('[Workflow Tracking] Stored workflow run in Redis:', runId);
     } catch (error) {
-      console.error('[Workflow Tracking] Redis storage error:', error);
+      console.error('[Workflow Tracking] Redis storage error:', error instanceof Error ? error.message : error);
+      console.warn('[Workflow Tracking] Falling back to in-memory storage for run:', runId);
       // Fall back to in-memory
       workflowRuns.set(runId, run);
     }
   } else {
+    if (!redisReady) {
+      console.warn('[Workflow Tracking] Redis not ready, using in-memory storage for run:', runId);
+    }
     workflowRuns.set(runId, run);
   }
 
@@ -254,10 +326,15 @@ export async function getWorkflowRun(runId: string): Promise<WorkflowRun | undef
  */
 export async function getAllWorkflowRuns(): Promise<WorkflowRun[]> {
   const redis = getRedisClient();
-  if (redis && isRedisAvailable()) {
+  const redisReady = isRedisAvailable();
+
+  console.log('[Workflow Tracking] Getting all workflow runs, Redis ready:', redisReady);
+
+  if (redis && redisReady) {
     try {
       // Get run IDs from sorted set (newest first)
       const runIds = await redis.zrevrange('workflow:runs', 0, -1);
+      console.log('[Workflow Tracking] Found', runIds.length, 'workflow IDs in Redis');
 
       // Fetch all runs
       const runs: WorkflowRun[] = [];
@@ -267,13 +344,20 @@ export async function getAllWorkflowRuns(): Promise<WorkflowRun[]> {
           runs.push(JSON.parse(data));
         }
       }
+      console.log('[Workflow Tracking] Retrieved', runs.length, 'workflows from Redis');
       return runs;
     } catch (error) {
-      console.error('[Workflow Tracking] Redis get all error:', error);
-      return Array.from(workflowRuns.values());
+      console.error('[Workflow Tracking] Redis get all error:', error instanceof Error ? error.message : error);
+      console.warn('[Workflow Tracking] Falling back to in-memory storage');
+      const memoryRuns = Array.from(workflowRuns.values());
+      console.log('[Workflow Tracking] Found', memoryRuns.length, 'workflows in memory');
+      return memoryRuns;
     }
   }
-  return Array.from(workflowRuns.values());
+
+  const memoryRuns = Array.from(workflowRuns.values());
+  console.log('[Workflow Tracking] Redis not available, found', memoryRuns.length, 'workflows in memory');
+  return memoryRuns;
 }
 
 /**
