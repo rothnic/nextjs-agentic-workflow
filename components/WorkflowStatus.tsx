@@ -10,26 +10,49 @@ interface WorkflowStatusProps {
 
 const POLLING_INTERVAL = 5000; // Poll every 5 seconds
 const MAX_POLLING_DURATION = 30000; // Stop polling after 30 seconds
+const MAX_EMPTY_REQUESTS = 50; // Stop after 50 empty requests
 
 export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollingStartTimeRef = useRef<number>(0);
+  const emptyRequestCountRef = useRef<number>(0);
 
   const fetchRuns = useCallback(async () => {
     setIsRefreshing(true);
     try {
+      console.log('[WorkflowStatus] Fetching workflow runs...');
       const response = await fetch('/api/workflows/runs');
       if (response.ok) {
         const data = await response.json();
+        console.log('[WorkflowStatus] Received', data.length, 'workflow runs');
         setRuns(data);
+
+        // Track empty requests
+        if (data.length === 0) {
+          emptyRequestCountRef.current += 1;
+          console.log('[WorkflowStatus] Empty request count:', emptyRequestCountRef.current);
+
+          // Enter idle state after MAX_EMPTY_REQUESTS
+          if (emptyRequestCountRef.current >= MAX_EMPTY_REQUESTS) {
+            console.log('[WorkflowStatus] Entering idle state after', MAX_EMPTY_REQUESTS, 'empty requests');
+            setIsIdle(true);
+            stopPolling();
+          }
+        } else {
+          // Reset counter when we get data
+          emptyRequestCountRef.current = 0;
+          setIsIdle(false);
+        }
+
         return data as WorkflowRun[];
       }
     } catch (error) {
-      console.error('Error fetching workflow runs:', error);
+      console.error('[WorkflowStatus] Error fetching workflow runs:', error);
     } finally {
       setIsRefreshing(false);
     }
@@ -49,19 +72,37 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   }, []);
 
   const startPolling = useCallback(() => {
-    // Don't start if already polling
-    if (isPolling) return;
+    // Don't start if already polling or in idle state
+    if (isPolling || isIdle) {
+      console.log('[WorkflowStatus] Not starting polling - isPolling:', isPolling, 'isIdle:', isIdle);
+      return;
+    }
 
+    // Don't start polling if tab is not visible
+    if (document.hidden) {
+      console.log('[WorkflowStatus] Not starting polling - tab is hidden');
+      return;
+    }
+
+    console.log('[WorkflowStatus] Starting polling...');
     setIsPolling(true);
     pollingStartTimeRef.current = Date.now();
 
     // Set timeout to stop polling after MAX_POLLING_DURATION
     pollingTimeoutRef.current = setTimeout(() => {
+      console.log('[WorkflowStatus] Stopping polling - max duration reached');
       stopPolling();
     }, MAX_POLLING_DURATION);
 
     // Start polling interval
     pollingIntervalRef.current = setInterval(async () => {
+      // Stop polling if tab is not visible
+      if (document.hidden) {
+        console.log('[WorkflowStatus] Stopping polling - tab is hidden');
+        stopPolling();
+        return;
+      }
+
       const currentRuns = await fetchRuns();
 
       // Check if all workflows are completed or failed
@@ -71,25 +112,46 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
 
       // Stop polling if no running workflows
       if (!hasRunningWorkflows) {
+        console.log('[WorkflowStatus] Stopping polling - no running workflows');
         stopPolling();
       }
 
       // Also stop if we've exceeded max duration
       if (Date.now() - pollingStartTimeRef.current > MAX_POLLING_DURATION) {
+        console.log('[WorkflowStatus] Stopping polling - max duration exceeded');
         stopPolling();
       }
     }, POLLING_INTERVAL);
 
     // Do an immediate fetch
     fetchRuns();
-  }, [isPolling, fetchRuns, stopPolling]);
+  }, [isPolling, isIdle, fetchRuns, stopPolling]);
 
   // Auto-refresh and start polling when refreshTrigger changes (workflow triggered from chat)
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
+      console.log('[WorkflowStatus] Refresh triggered');
+      // Reset idle state when new workflow is triggered
+      setIsIdle(false);
+      emptyRequestCountRef.current = 0;
       startPolling();
     }
   }, [refreshTrigger, startPolling]);
+
+  // Stop polling when tab becomes hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isPolling) {
+        console.log('[WorkflowStatus] Tab hidden - stopping polling');
+        stopPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPolling, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -99,6 +161,10 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   }, [stopPolling]);
 
   const handleRefresh = useCallback(() => {
+    console.log('[WorkflowStatus] Manual refresh clicked');
+    // Reset idle state on manual refresh
+    setIsIdle(false);
+    emptyRequestCountRef.current = 0;
     fetchRuns();
   }, [fetchRuns]);
 
@@ -128,7 +194,9 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
           </button>
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          {isPolling
+          {isIdle
+            ? 'Idle - click refresh to check for updates'
+            : isPolling
             ? 'Auto-refreshing every 5 seconds...'
             : 'Click refresh to update workflow status'}
         </p>

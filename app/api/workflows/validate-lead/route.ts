@@ -25,27 +25,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Create workflow run for tracking
+    console.log('[Validate Lead] Creating workflow run for tracking...');
     const run = await createWorkflowRun('validate', leadId, [
       'Validate Email Format',
       'Validate Domain',
       'Finalize Validation',
     ]);
     runId = run.id;
+    console.log('[Validate Lead] Created workflow run:', runId);
 
     // Mark as running
+    console.log('[Validate Lead] Marking workflow as running...');
     await updateWorkflowStatus(runId, 'running');
 
     // Execute the workflow using start() from workflow/api
+    console.log('[Validate Lead] Starting workflow execution...');
     await updateStepStatus(runId, 0, 'running');
 
     const result = await start(validateLead, [leadId, lead]);
+    console.log('[Validate Lead] Workflow execution completed:', result);
 
     // Mark all steps as completed (Vercel Workflow handles the internals)
+    console.log('[Validate Lead] Marking steps as completed...');
     await updateStepStatus(runId, 0, 'completed');
     await updateStepStatus(runId, 1, 'completed');
     await updateStepStatus(runId, 2, 'completed');
 
     // Mark workflow as completed
+    console.log('[Validate Lead] Marking workflow as completed...');
     await updateWorkflowStatus(runId, 'completed', result);
 
     return Response.json({

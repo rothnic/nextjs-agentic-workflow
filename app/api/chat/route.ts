@@ -316,8 +316,77 @@ export async function POST(req: Request) {
           };
         },
       }),
+
+      getWorkflowStatus: tool({
+        description: 'Get the status of all workflow runs or check if there are any active workflows. Use this to answer questions about workflow execution status.',
+        parameters: z.object({
+          limit: z.number().optional().describe('Maximum number of workflow runs to return (default: 10)'),
+        }),
+        execute: async ({ limit = 10 }) => {
+          try {
+            const baseUrl = getBaseUrl();
+            const url = `${baseUrl}/api/workflows/runs`;
+
+            console.log(`[Workflow] Fetching workflow status from ${url}`);
+
+            const headers: Record<string, string> = {
+              'Content-Type': 'application/json',
+            };
+
+            if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+              headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+            }
+
+            const response = await fetch(url, { headers });
+
+            if (!response.ok) {
+              throw new Error(`Failed to fetch workflows: ${response.status}`);
+            }
+
+            const workflows = await response.json();
+            console.log(`[Workflow] Retrieved ${workflows.length} workflow runs`);
+
+            // Return recent workflows
+            const recentWorkflows = workflows.slice(0, limit);
+
+            if (recentWorkflows.length === 0) {
+              return {
+                success: true,
+                count: 0,
+                message: 'No workflow runs found',
+                workflows: [],
+              };
+            }
+
+            return {
+              success: true,
+              count: recentWorkflows.length,
+              workflows: recentWorkflows.map((w: any) => ({
+                id: w.id,
+                workflowName: w.workflowName,
+                leadId: w.leadId,
+                status: w.status,
+                startTime: new Date(w.startTime).toLocaleString(),
+                endTime: w.endTime ? new Date(w.endTime).toLocaleString() : 'In progress',
+                steps: w.steps.map((s: any) => ({
+                  name: s.name,
+                  status: s.status,
+                })),
+                error: w.error,
+              })),
+            };
+          } catch (error) {
+            console.error('[Workflow] Error fetching workflow status:', error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to fetch workflow status',
+            };
+          }
+        },
+      }),
     },
     system: `You are a helpful lead processing assistant. You can help validate, enrich, score, process, and submit leads.
+You can also check the status of workflow executions.
     
 When users provide lead information, you can:
 - Submit new leads to the system
