@@ -8,8 +8,8 @@ interface WorkflowStatusProps {
   refreshTrigger?: number;
 }
 
-const POLLING_INTERVAL = 1500; // Poll every 1.5 seconds
-const MAX_POLLING_DURATION = 60000; // Stop polling after 60 seconds
+const POLLING_INTERVAL = 5000; // Poll every 5 seconds
+const MAX_POLLING_DURATION = 30000; // Stop polling after 30 seconds
 
 export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
@@ -129,7 +129,7 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-400">
           {isPolling
-            ? 'Auto-refreshing workflow status...'
+            ? 'Auto-refreshing every 5 seconds...'
             : 'Click refresh to update workflow status'}
         </p>
       </div>
