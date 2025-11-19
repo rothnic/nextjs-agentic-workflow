@@ -4,6 +4,9 @@
  * This module defines durable, observable workflows for lead processing.
  * Each workflow uses the "use workflow" directive for durability.
  * Each step uses the "use step" directive for automatic retries.
+ *
+ * IMPORTANT: sleep() must be called within workflow functions, not step functions.
+ * Delays are added between steps in the workflow functions for visibility.
  */
 
 import { Lead } from '../types/workflow';
@@ -24,10 +27,6 @@ const STEP_DELAYS = {
 async function validateEmailStep(lead: Lead): Promise<{ valid: boolean; reason?: string }> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.medium);
-  }
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const valid = emailRegex.test(lead.email);
 
@@ -40,10 +39,6 @@ async function validateEmailStep(lead: Lead): Promise<{ valid: boolean; reason?:
 async function validateDomainStep(email: string): Promise<{ valid: boolean; domain: string }> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.short);
-  }
-
   const domain = email.split('@')[1] || '';
   // In production, this would check DNS records
   const valid = domain.length > 0;
@@ -54,19 +49,11 @@ async function validateDomainStep(email: string): Promise<{ valid: boolean; doma
 async function finalizeValidationStep(): Promise<{ validated: boolean }> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.short);
-  }
-
   return { validated: true };
 }
 
 async function enrichLeadStep(lead: Lead): Promise<Record<string, unknown>> {
   'use step';
-
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.long);
-  }
 
   // Simulate enrichment with external data
   const mockEnrichment = {
@@ -82,19 +69,11 @@ async function enrichLeadStep(lead: Lead): Promise<Record<string, unknown>> {
 async function enrichProfileStep(): Promise<{ enriched: boolean }> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.medium);
-  }
-
   return { enriched: true };
 }
 
 async function updateRecordStep(): Promise<{ updated: boolean }> {
   'use step';
-
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.short);
-  }
 
   return { updated: true };
 }
@@ -102,19 +81,11 @@ async function updateRecordStep(): Promise<{ updated: boolean }> {
 async function gatherLeadDataStep(lead: Lead): Promise<Record<string, unknown>> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.short);
-  }
-
   return lead.enrichmentDetails || {};
 }
 
 async function calculateScoreStep(lead: Lead, enrichmentData: Record<string, unknown>): Promise<number> {
   'use step';
-
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.medium);
-  }
 
   let score = 0;
 
@@ -132,10 +103,6 @@ async function calculateScoreStep(lead: Lead, enrichmentData: Record<string, unk
 async function determineQualificationStep(score: number): Promise<{ qualified: boolean; threshold: number }> {
   'use step';
 
-  if (ENABLE_DELAYS) {
-    await sleep(STEP_DELAYS.short);
-  }
-
   const qualified = score >= 60;
 
   return { qualified, threshold: 60 };
@@ -152,13 +119,17 @@ export async function validateLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const emailResult = await validateEmailStep(lead);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
 
   if (!emailResult.valid) {
     throw new Error(emailResult.reason || 'Email validation failed');
   }
 
   const domainResult = await validateDomainStep(lead.email);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
+
   const finalResult = await finalizeValidationStep();
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     validated: true,
@@ -175,8 +146,13 @@ export async function enrichLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const companyData = await enrichLeadStep(lead);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.long);
+
   const profileResult = await enrichProfileStep();
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
+
   const recordResult = await updateRecordStep();
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     ...companyData,
@@ -192,8 +168,13 @@ export async function scoreLead(leadId: string, lead: Lead) {
   'use workflow';
 
   const enrichmentData = await gatherLeadDataStep(lead);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
+
   const score = await calculateScoreStep(lead, enrichmentData);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.medium);
+
   const qualificationResult = await determineQualificationStep(score);
+  if (ENABLE_DELAYS) await sleep(STEP_DELAYS.short);
 
   return {
     score,
