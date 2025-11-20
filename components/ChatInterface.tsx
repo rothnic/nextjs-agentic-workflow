@@ -1,8 +1,8 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useMemo, useState } from 'react';
-import { getStoredConfig } from '@/lib/config/llm-storage';
+import { useMemo, useState, useEffect } from 'react';
+import { getStoredConfig, saveConfig } from '@/lib/config/llm-storage';
 import { LLMConfig } from '@/lib/types/llm-config';
 import { 
   Conversation, 
@@ -28,11 +28,19 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
+  PromptInputButton,
+  PromptInputSelect,
+  PromptInputSelectTrigger,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectValue,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Tool, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Loader } from '@/components/ai-elements/loader';
-import { MessageSquareIcon, CopyIcon, RefreshCcwIcon } from 'lucide-react';
+import { SubmitLeadDialog } from '@/components/lead/SubmitLeadDialog';
+import { MessageSquareIcon, CopyIcon, RefreshCcwIcon, UserPlusIcon } from 'lucide-react';
+import { nanoid } from 'nanoid';
 
 interface ToolInvocation {
   toolCallId: string;
@@ -59,6 +67,12 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
+  // State for models and lead dialog
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [hasServerKey, setHasServerKey] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [showLeadDialog, setShowLeadDialog] = useState(false);
+
   // Initialize config once on mount, using useMemo to avoid re-reads
   const config = useMemo<LLMConfig | null>(() => {
     if (typeof window !== 'undefined') {
@@ -68,6 +82,42 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   }, []);
 
   const [input, setInput] = useState('');
+
+  // Fetch available models on mount
+  useEffect(() => {
+    async function fetchModels() {
+      try {
+        const response = await fetch('/api/models');
+        const data = await response.json();
+        
+        setAvailableModels(data.models || []);
+        setHasServerKey(data.hasServerKey);
+        
+        // Set default model if available
+        if (data.models && data.models.length > 0) {
+          setSelectedModel(data.models[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch models:', error);
+      }
+    }
+    
+    fetchModels();
+  }, []);
+
+  // Update config when model changes
+  useEffect(() => {
+    if (hasServerKey && selectedModel) {
+      const newConfig: LLMConfig = {
+        provider: 'openrouter',
+        apiKey: '', // Will use server-side key
+        model: selectedModel,
+        baseUrl: 'https://openrouter.ai/api/v1',
+      };
+      saveConfig(newConfig);
+    }
+  }, [selectedModel, hasServerKey]);
+
   const { messages, append, status, reload } = useChat({
     api: '/api/chat',
     id: config ? `chat-${config.provider}-${config.model || 'default'}` : 'chat-default',
@@ -102,6 +152,16 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
 
   const handleRegenerate = () => {
     reload();
+  };
+
+  const handleLeadSubmit = (lead: { email: string; name: string; company?: string; phone?: string }) => {
+    const leadId = nanoid();
+    const message = `Process lead: ${lead.email}, ${lead.name}${lead.company ? `, ${lead.company}` : ''}${lead.phone ? `, ${lead.phone}` : ''}`;
+    
+    append({
+      role: 'user',
+      content: message,
+    });
   };
 
   return (
@@ -200,6 +260,30 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
 
       <div className="border-t p-4">
         <PromptInput onSubmit={handleSubmit}>
+          {hasServerKey && availableModels.length > 0 && (
+            <PromptInputHeader>
+              <PromptInputSelect value={selectedModel} onValueChange={setSelectedModel}>
+                <PromptInputSelectTrigger>
+                  <PromptInputSelectValue placeholder="Select model" />
+                </PromptInputSelectTrigger>
+                <PromptInputSelectContent>
+                  {availableModels.map((model) => (
+                    <PromptInputSelectItem key={model.id} value={model.id}>
+                      {model.name}
+                    </PromptInputSelectItem>
+                  ))}
+                </PromptInputSelectContent>
+              </PromptInputSelect>
+              <PromptInputButton
+                type="button"
+                onClick={() => setShowLeadDialog(true)}
+                variant="outline"
+              >
+                <UserPlusIcon className="size-4 mr-2" />
+                Submit Lead
+              </PromptInputButton>
+            </PromptInputHeader>
+          )}
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
@@ -219,6 +303,12 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
           </PromptInputFooter>
         </PromptInput>
       </div>
+
+      <SubmitLeadDialog
+        open={showLeadDialog}
+        onOpenChange={setShowLeadDialog}
+        onSubmit={handleLeadSubmit}
+      />
     </div>
   );
 }
