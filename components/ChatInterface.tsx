@@ -81,11 +81,9 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                   <button
                     key={i}
                     onClick={() => {
-                      const event = {
-                        preventDefault: () => {},
+                      handleInputChange({
                         target: { value: example.text }
-                      } as any;
-                      handleInputChange(event);
+                      } as React.ChangeEvent<HTMLTextAreaElement>);
                     }}
                     className="p-4 text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
                   >
@@ -227,12 +225,14 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSubmit(e as any);
+                  const form = e.currentTarget.form;
+                  if (form) {
+                    form.requestSubmit();
+                  }
                 }
               }}
               placeholder="Send a message..."
               disabled={isLoading}
-              rows={1}
               className="w-full resize-none rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 pr-12 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               style={{ minHeight: '52px', maxHeight: '200px' }}
             />
