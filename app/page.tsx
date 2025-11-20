@@ -4,6 +4,9 @@ import { useState, useCallback } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 import { WorkflowStatus } from '@/components/WorkflowStatus';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { SettingsIcon } from 'lucide-react';
 
 export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
@@ -14,34 +17,42 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-950">
+    <div className="flex h-screen bg-background">
       <div className="flex-1 flex flex-col">
-        <header className="bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Lead Processing Agent
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                AI-powered lead validation, enrichment, and scoring
-              </p>
+        <header className="border-b bg-card">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground font-bold text-lg">
+                LP
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">
+                  Lead Processing Agent
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  AI-powered lead validation, enrichment, and scoring
+                </p>
+              </div>
             </div>
-            <button
+            <Button
               onClick={() => setShowSettings(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              title="Configure LLM settings"
+              variant="outline"
+              size="sm"
             >
-              ⚙️ Settings
-            </button>
+              <SettingsIcon className="size-4 mr-2" />
+              Settings
+            </Button>
           </div>
         </header>
         
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 bg-white dark:bg-gray-900">
+          <div className="flex-1 bg-background">
             <ChatInterface onWorkflowTriggered={handleWorkflowTriggered} />
           </div>
           
-          <div className="w-96 border-l border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <Separator orientation="vertical" />
+          
+          <div className="w-96 bg-card">
             <WorkflowStatus refreshTrigger={refreshTrigger} />
           </div>
         </div>

@@ -1,14 +1,30 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { getStoredConfig } from '@/lib/config/llm-storage';
 import { LLMConfig } from '@/lib/types/llm-config';
+import { 
+  Conversation, 
+  ConversationContent, 
+  ConversationEmptyState,
+  ConversationScrollButton 
+} from '@/components/ai-elements/conversation';
+import { Message, MessageContent } from '@/components/ai-elements/message';
+import { 
+  PromptInput, 
+  PromptInputTextarea, 
+  PromptInputSubmit 
+} from '@/components/ai-elements/prompt-input';
+import { Tool, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
+import { Loader } from '@/components/ai-elements/loader';
+import { MessageSquareIcon } from 'lucide-react';
 
 interface ToolInvocation {
   toolCallId: string;
   toolName: string;
   state: string;
+  args?: any;
   result?: {
     message?: string;
     executionId?: string;
@@ -17,7 +33,7 @@ interface ToolInvocation {
   };
 }
 
-interface Message {
+interface ChatMessage {
   id: string;
   role: string;
   content: string;
@@ -37,7 +53,7 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
     return null;
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, status } = useChat({
     api: '/api/chat',
     id: config ? `chat-${config.provider}-${config.model || 'default'}` : 'chat-default',
     body: config ? { config } : {},
@@ -49,126 +65,103 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
       }
     },
   });
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-  
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            <p className="text-lg font-semibold mb-2">Welcome to Lead Processing Agent</p>
-            <p className="text-sm">Ask me to validate, enrich, score, or process leads.</p>
-            <div className="mt-4 text-left max-w-md mx-auto bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <p className="text-sm font-semibold mb-2">Example commands:</p>
-              <ul className="text-xs space-y-1 list-disc list-inside">
-                <li>Validate lead: john@example.com, John Doe, Acme Corp</li>
-                <li>Enrich lead: jane@techcorp.com, Jane Smith, TechCorp</li>
-                <li>Score lead: bob@startup.io, Bob Johnson, Startup Inc, +1234567890</li>
-                <li>Process lead: alice@company.com, Alice Brown, Company LLC</li>
-              </ul>
-            </div>
-          </div>
-        )}
-        
-        {messages.map((message: Message) => (
-          <div
-            key={message.id}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              }`}
+      <Conversation>
+        <ConversationContent>
+          {messages.length === 0 ? (
+            <ConversationEmptyState
+              icon={<MessageSquareIcon className="size-12" />}
+              title="Welcome to Lead Processing Agent"
+              description="Ask me to validate, enrich, score, or process leads."
             >
-              <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-              
-              {message.toolInvocations && message.toolInvocations.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {message.toolInvocations.map((toolInvocation: ToolInvocation) => (
-                    <div
-                      key={toolInvocation.toolCallId}
-                      className="text-xs bg-white dark:bg-gray-900 rounded p-2 border border-gray-300 dark:border-gray-700"
-                    >
-                      <div className="font-semibold text-blue-600 dark:text-blue-400 mb-1">
-                        🔧 {toolInvocation.toolName}
-                      </div>
-                      {toolInvocation.state === 'result' && toolInvocation.result && (
-                        <div className="mt-1 space-y-1">
-                          <div className="text-gray-600 dark:text-gray-400">
-                            {toolInvocation.result.message}
-                          </div>
-                          {toolInvocation.result.executionId && (
-                            <div className="text-gray-500 dark:text-gray-500 text-xs">
-                              Execution ID: {toolInvocation.result.executionId}
-                            </div>
-                          )}
-                          {toolInvocation.result.leadId && (
-                            <div className="text-gray-500 dark:text-gray-500 text-xs">
-                              Lead ID: {toolInvocation.result.leadId}
-                            </div>
-                          )}
-                          {toolInvocation.result.success !== undefined && (
-                            <div className={`text-xs font-medium ${toolInvocation.result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {toolInvocation.result.success ? '✓ Success' : '✗ Failed'}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {toolInvocation.state === 'call' && (
-                        <div className="text-gray-500 dark:text-gray-500 text-xs">
-                          Executing...
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-lg px-4 py-2">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-100"></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-200"></div>
+              <div className="mt-6 text-left max-w-md bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm font-semibold mb-2">Example commands:</p>
+                <ul className="text-xs space-y-1 list-disc list-inside text-muted-foreground">
+                  <li>Validate lead: john@example.com, John Doe, Acme Corp</li>
+                  <li>Enrich lead: jane@techcorp.com, Jane Smith, TechCorp</li>
+                  <li>Score lead: bob@startup.io, Bob Johnson, Startup Inc, +1234567890</li>
+                  <li>Process lead: alice@company.com, Alice Brown, Company LLC</li>
+                </ul>
               </div>
-            </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
-      
-      <form onSubmit={handleSubmit} className="border-t border-gray-300 dark:border-gray-700 p-4">
-        <div className="flex space-x-2">
-          <input
-            type="text"
+            </ConversationEmptyState>
+          ) : (
+            messages.map((message: ChatMessage) => (
+              <Message key={message.id} from={message.role as any}>
+                <MessageContent>
+                  {message.content && (
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  )}
+                  
+                  {message.toolInvocations && message.toolInvocations.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {message.toolInvocations.map((toolInvocation: ToolInvocation) => {
+                        // Map tool states to ai-elements compatible states
+                        const mappedState = toolInvocation.state === 'result' 
+                          ? 'output-available' 
+                          : toolInvocation.state === 'call'
+                          ? 'input-available'
+                          : 'input-streaming';
+
+                        return (
+                          <Tool key={toolInvocation.toolCallId} defaultOpen>
+                            <ToolHeader
+                              title={toolInvocation.toolName}
+                              type="tool-invocation"
+                              state={mappedState as any}
+                            />
+                            {toolInvocation.args && (
+                              <ToolInput input={toolInvocation.args} />
+                            )}
+                            {toolInvocation.result && (
+                              <ToolOutput 
+                                output={toolInvocation.result}
+                                errorText={toolInvocation.result.success === false ? 'Tool execution failed' : undefined}
+                              />
+                            )}
+                          </Tool>
+                        );
+                      })}
+                    </div>
+                  )}
+                </MessageContent>
+              </Message>
+            ))
+          )}
+          
+          {isLoading && (
+            <Message from="assistant">
+              <MessageContent>
+                <Loader />
+              </MessageContent>
+            </Message>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <div className="border-t p-4">
+        <PromptInput 
+          onSubmit={(message, event) => {
+            event.preventDefault();
+            // Create synthetic event for useChat
+            const syntheticEvent = {
+              preventDefault: () => {},
+              target: { value: message.text }
+            } as any;
+            handleSubmit(syntheticEvent);
+          }}
+        >
+          <PromptInputTextarea
             value={input}
             onChange={handleInputChange}
             placeholder={isLoading ? "Agent is responding..." : "Type a message..."}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            disabled={isLoading}
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </button>
-        </div>
-      </form>
+          <PromptInputSubmit status={status as any} disabled={!input.trim() || isLoading} />
+        </PromptInput>
+      </div>
     </div>
   );
 }
