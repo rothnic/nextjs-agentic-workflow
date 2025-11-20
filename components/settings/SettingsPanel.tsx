@@ -123,7 +123,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               {config.provider === 'openrouter' && (
                 <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-xs text-blue-900 dark:text-blue-100">
-                    💡 <strong>Tip:</strong> Set <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded text-xs">OPENROUTER_API_KEY</code> in your environment to avoid entering it each time.
+                    💡 <strong>Tip:</strong> The server API route can use <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded text-xs">OPENROUTER_API_KEY</code> from environment variables. Set it in your <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded text-xs">.env.local</code> file or deployment environment.
                   </p>
                 </div>
               )}

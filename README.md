@@ -128,7 +128,7 @@ Click the **Settings** button in the top-right corner to:
 - For OpenRouter: Browse and select from available **free models only**
 - View free models sorted by popularity at [OpenRouter Models](https://openrouter.ai/models?fmt=cards&max_price=0&order=top-weekly)
 
-**💡 Tip**: Set `OPENROUTER_API_KEY` in your environment variables to avoid entering it each time. The settings panel will display this tip when you select OpenRouter.
+**💡 Server Configuration**: The API route can use `OPENROUTER_API_KEY` from your server environment variables (`.env.local` or deployment settings). This avoids the need to enter it in the UI each time.
 
 **Priority**: Client-side settings override server-side environment variables. For persistent settings across deployments, configure environment variables on your hosting platform (e.g., Vercel, Railway).
 

@@ -62,18 +62,26 @@ The settings panel now includes:
 
 #### 1. **OPENROUTER_API_KEY Environment Variable Support**
 ```tsx
-// Tip displayed in the UI
-💡 Tip: Set OPENROUTER_API_KEY in your environment to avoid entering it each time.
+// The API route (server-side) can access environment variables directly
+const apiKey = process.env.OPENROUTER_API_KEY;
 ```
 
-To use this feature, set the environment variable in your deployment:
+**Server-Side Environment Variable:**
+The API route (`app/api/chat/route.ts`) already supports using `OPENROUTER_API_KEY` from server environment variables. This is the recommended approach for production deployments.
+
+To use this feature:
 ```bash
 # For local development (.env.local)
 OPENROUTER_API_KEY=your_key_here
+LLM_PROVIDER=openrouter
+OPENROUTER_MODEL=your_model_id
 
 # For production (e.g., Vercel)
 # Add via dashboard: Settings → Environment Variables
 ```
+
+**Client-Side Settings:**
+Users can also configure the API key through the settings panel, which stores it in browser localStorage. Client-side settings take precedence over server settings.
 
 #### 2. **Free Models Only**
 The OpenRouter integration now:

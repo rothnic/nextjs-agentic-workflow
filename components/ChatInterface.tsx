@@ -22,7 +22,6 @@ interface Message {
   role: string;
   content: string;
   toolInvocations?: ToolInvocation[];
-  createdAt?: Date;
 }
 
 interface ChatInterfaceProps {
@@ -123,11 +122,6 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                   <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {message.role === 'user' ? 'You' : 'Assistant'}
                   </span>
-                  {message.createdAt && (
-                    <span className="text-xs text-gray-500 dark:text-gray-500">
-                      {new Date(message.createdAt).toLocaleTimeString()}
-                    </span>
-                  )}
                 </div>
                 
                 <div className="prose prose-sm dark:prose-invert max-w-none">
