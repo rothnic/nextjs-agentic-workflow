@@ -4,20 +4,22 @@ AI-powered lead validation, enrichment, and scoring with real-time workflow trac
 
 ## Features
 
-- **Chat Interface**: Interactive chat powered by AI SDK with natural language processing
+- **ChatGPT-Like Interface**: Modern, clean chat UI with message bubbles, icons, and smooth interactions
 - **AI Agent with Tools**: Agent can submit, validate, enrich, score, and process leads
+- **Quick Actions**: Clickable example prompts to get started quickly
 - **Manual Workflow Refresh**: Click-to-refresh workflow status (no automatic polling)
+- **Collapsible Panels**: Toggle workflow panel visibility for distraction-free chat
 - **Multiple Workflows**:
   - **Submit**: Add new leads to the system
   - **Validate**: Check email format and domain validity
   - **Enrich**: Add company information and data enrichment
   - **Score**: Calculate lead score and determine qualification
   - **Process**: Run complete workflow (validate + enrich + score)
-- **Multi-Provider LLM Support**: Use OpenAI or OpenRouter
+- **Multi-Provider LLM Support**: Use OpenAI or OpenRouter with free models
 - **Persistent Settings**: Configure via environment variables for deployment persistence
 - **TypeScript**: Full type safety throughout the application
 - **Testing**: Unit tests with Jest and E2E tests with Playwright
-- **Modern UI**: Responsive design with Tailwind CSS and dark mode support
+- **Modern UI**: ChatGPT-inspired design with Tailwind CSS, Lucide icons, and dark mode support
 
 ## Getting Started
 

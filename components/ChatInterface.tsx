@@ -4,6 +4,7 @@ import { useChat } from 'ai/react';
 import { useEffect, useRef, useMemo } from 'react';
 import { getStoredConfig } from '@/lib/config/llm-storage';
 import { LLMConfig } from '@/lib/types/llm-config';
+import { Send, Loader2, User, Bot, Wrench } from 'lucide-react';
 
 interface ToolInvocation {
   toolCallId: string;
@@ -29,7 +30,6 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
-  // Initialize config once on mount, using useMemo to avoid re-reads
   const config = useMemo<LLMConfig | null>(() => {
     if (typeof window !== 'undefined') {
       return getStoredConfig();
@@ -42,7 +42,6 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
     id: config ? `chat-${config.provider}-${config.model || 'default'}` : 'chat-default',
     body: config ? { config } : {},
     onToolCall: ({ toolCall }) => {
-      // Trigger refresh when any workflow tool is called
       const workflowTools = ['validateLead', 'enrichLead', 'scoreLead', 'processLead', 'submitLead'];
       if (workflowTools.includes(toolCall.toolName)) {
         onWorkflowTriggered?.();
@@ -57,118 +56,203 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   }, [messages]);
   
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            <p className="text-lg font-semibold mb-2">Welcome to Lead Processing Agent</p>
-            <p className="text-sm">Ask me to validate, enrich, score, or process leads.</p>
-            <div className="mt-4 text-left max-w-md mx-auto bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-              <p className="text-sm font-semibold mb-2">Example commands:</p>
-              <ul className="text-xs space-y-1 list-disc list-inside">
-                <li>Validate lead: john@example.com, John Doe, Acme Corp</li>
-                <li>Enrich lead: jane@techcorp.com, Jane Smith, TechCorp</li>
-                <li>Score lead: bob@startup.io, Bob Johnson, Startup Inc, +1234567890</li>
-                <li>Process lead: alice@company.com, Alice Brown, Company LLC</li>
-              </ul>
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full px-4 text-center">
+            <div className="w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <Bot className="w-8 h-8 text-white" />
             </div>
-          </div>
-        )}
-        
-        {messages.map((message: Message) => (
-          <div
-            key={message.id}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-              }`}
-            >
-              <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-              
-              {message.toolInvocations && message.toolInvocations.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {message.toolInvocations.map((toolInvocation: ToolInvocation) => (
-                    <div
-                      key={toolInvocation.toolCallId}
-                      className="text-xs bg-white dark:bg-gray-900 rounded p-2 border border-gray-300 dark:border-gray-700"
-                    >
-                      <div className="font-semibold text-blue-600 dark:text-blue-400 mb-1">
-                        🔧 {toolInvocation.toolName}
-                      </div>
-                      {toolInvocation.state === 'result' && toolInvocation.result && (
-                        <div className="mt-1 space-y-1">
-                          <div className="text-gray-600 dark:text-gray-400">
-                            {toolInvocation.result.message}
-                          </div>
-                          {toolInvocation.result.executionId && (
-                            <div className="text-gray-500 dark:text-gray-500 text-xs">
-                              Execution ID: {toolInvocation.result.executionId}
-                            </div>
-                          )}
-                          {toolInvocation.result.leadId && (
-                            <div className="text-gray-500 dark:text-gray-500 text-xs">
-                              Lead ID: {toolInvocation.result.leadId}
-                            </div>
-                          )}
-                          {toolInvocation.result.success !== undefined && (
-                            <div className={`text-xs font-medium ${toolInvocation.result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {toolInvocation.result.success ? '✓ Success' : '✗ Failed'}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {toolInvocation.state === 'call' && (
-                        <div className="text-gray-500 dark:text-gray-500 text-xs">
-                          Executing...
-                        </div>
-                      )}
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Lead Processing Agent
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md">
+              I can help you validate, enrich, score, and process leads. Just ask me what you need!
+            </p>
+            <div className="w-full max-w-2xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { text: "Validate lead: john@example.com, John Doe, Acme Corp", icon: "✓" },
+                  { text: "Enrich lead: jane@techcorp.com, Jane Smith, TechCorp", icon: "+" },
+                  { text: "Score lead: bob@startup.io, Bob Johnson, Startup Inc", icon: "★" },
+                  { text: "Process lead: alice@company.com, Alice Brown, Company LLC", icon: "⚡" }
+                ].map((example, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      handleInputChange({
+                        target: { value: example.text }
+                      } as React.ChangeEvent<HTMLTextAreaElement>);
+                    }}
+                    className="p-4 text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl group-hover:scale-110 transition-transform">{example.icon}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{example.text}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-lg px-4 py-2">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-100"></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-200"></div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+        ) : (
+          <div className="max-w-3xl mx-auto px-4 py-6">
+            {messages.map((message: Message, index: number) => (
+              <div
+                key={message.id}
+                className={`mb-8 flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {message.role === 'assistant' && (
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                )}
+                
+                <div className={`flex-1 ${message.role === 'user' ? 'max-w-[80%]' : ''}`}>
+                  <div
+                    className={`rounded-2xl px-5 py-3 ${
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white ml-auto'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                    }`}
+                  >
+                    <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
+                  </div>
+                  
+                  {/* Tool Invocations */}
+                  {message.toolInvocations && message.toolInvocations.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {message.toolInvocations.map((tool: ToolInvocation) => (
+                        <div
+                          key={tool.toolCallId}
+                          className="rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                              {tool.toolName}
+                            </span>
+                            {tool.state === 'call' && (
+                              <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                            )}
+                          </div>
+                          
+                          {tool.state === 'result' && tool.result && (
+                            <div className="space-y-2 text-sm">
+                              <p className="text-gray-700 dark:text-gray-300">
+                                {tool.result.message}
+                              </p>
+                              <div className="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
+                                {tool.result.executionId && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-medium">Execution:</span>
+                                    <code className="px-2 py-0.5 bg-gray-200 dark:bg-gray-900 rounded">
+                                      {tool.result.executionId.slice(0, 8)}...
+                                    </code>
+                                  </div>
+                                )}
+                                {tool.result.leadId && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-medium">Lead:</span>
+                                    <code className="px-2 py-0.5 bg-gray-200 dark:bg-gray-900 rounded">
+                                      {tool.result.leadId.slice(0, 8)}...
+                                    </code>
+                                  </div>
+                                )}
+                                {tool.result.success !== undefined && (
+                                  <div className={`font-medium ${
+                                    tool.result.success 
+                                      ? 'text-green-600 dark:text-green-400' 
+                                      : 'text-red-600 dark:text-red-400'
+                                  }`}>
+                                    {tool.result.success ? '✓ Success' : '✗ Failed'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {message.role === 'user' && (
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-gray-700 dark:bg-gray-600 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="mb-8 flex gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="rounded-2xl px-5 py-3 bg-gray-100 dark:bg-gray-800">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-600 dark:text-gray-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
         )}
-        
-        <div ref={messagesEndRef} />
       </div>
       
-      <form onSubmit={handleSubmit} className="border-t border-gray-300 dark:border-gray-700 p-4">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={input}
-            onChange={handleInputChange}
-            placeholder={isLoading ? "Agent is responding..." : "Type a message..."}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </button>
+      {/* Input Area */}
+      <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <form onSubmit={handleSubmit} className="relative">
+            <textarea
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const form = e.currentTarget.form;
+                  if (form) {
+                    form.requestSubmit();
+                  }
+                }
+              }}
+              placeholder="Send a message..."
+              disabled={isLoading}
+              className="w-full resize-none rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 pr-12 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              style={{ minHeight: '52px', maxHeight: '200px' }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              className="absolute right-2 bottom-2 p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
+            Press Enter to send, Shift+Enter for new line
+          </p>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
