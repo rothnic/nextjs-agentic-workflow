@@ -40,7 +40,3 @@ export function getDefaultConfig(): LLMConfig {
     apiKey: '',
   };
 }
-
-// Note: Client-side cannot directly access server environment variables in Next.js
-// Environment variables need NEXT_PUBLIC_ prefix for client-side access
-// For server-side API routes, use process.env.OPENROUTER_API_KEY directly
