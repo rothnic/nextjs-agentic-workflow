@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getStoredConfig } from '@/lib/config/llm-storage';
 import { LLMConfig } from '@/lib/types/llm-config';
 import { 
@@ -10,15 +10,29 @@ import {
   ConversationEmptyState,
   ConversationScrollButton 
 } from '@/components/ai-elements/conversation';
-import { Message, MessageContent } from '@/components/ai-elements/message';
 import { 
-  PromptInput, 
+  Message, 
+  MessageContent,
+  MessageResponse,
+  MessageActions,
+  MessageAction,
+} from '@/components/ai-elements/message';
+import { 
+  PromptInput,
+  PromptInputHeader,
+  PromptInputBody,
+  PromptInputFooter,
   PromptInputTextarea, 
-  PromptInputSubmit 
+  PromptInputSubmit,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
+  type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Tool, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Loader } from '@/components/ai-elements/loader';
-import { MessageSquareIcon } from 'lucide-react';
+import { MessageSquareIcon, CopyIcon, RefreshCcwIcon } from 'lucide-react';
 
 interface ToolInvocation {
   toolCallId: string;
@@ -53,7 +67,8 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
     return null;
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, status } = useChat({
+  const [input, setInput] = useState('');
+  const { messages, append, status, reload } = useChat({
     api: '/api/chat',
     id: config ? `chat-${config.provider}-${config.model || 'default'}` : 'chat-default',
     body: config ? { config } : {},
@@ -65,6 +80,29 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
       }
     },
   });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const handleSubmit = (message: PromptInputMessage) => {
+    const hasText = Boolean(message.text);
+    
+    if (!hasText) return;
+
+    append({
+      role: 'user',
+      content: message.text,
+    });
+
+    setInput('');
+  };
+
+  const handleCopy = (content: string) => {
+    navigator.clipboard.writeText(content);
+  };
+
+  const handleRegenerate = () => {
+    reload();
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -87,11 +125,11 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
               </div>
             </ConversationEmptyState>
           ) : (
-            messages.map((message: ChatMessage) => (
+            messages.map((message: ChatMessage, index) => (
               <Message key={message.id} from={message.role as any}>
                 <MessageContent>
                   {message.content && (
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <MessageResponse>{message.content}</MessageResponse>
                   )}
                   
                   {message.toolInvocations && message.toolInvocations.length > 0 && (
@@ -126,6 +164,25 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                     </div>
                   )}
                 </MessageContent>
+                
+                {message.role === 'assistant' && message.content && (
+                  <MessageActions>
+                    <MessageAction
+                      onClick={() => handleCopy(message.content)}
+                      tooltip="Copy to clipboard"
+                    >
+                      <CopyIcon className="size-4" />
+                    </MessageAction>
+                    {index === messages.length - 1 && (
+                      <MessageAction
+                        onClick={handleRegenerate}
+                        tooltip="Regenerate response"
+                      >
+                        <RefreshCcwIcon className="size-4" />
+                      </MessageAction>
+                    )}
+                  </MessageActions>
+                )}
               </Message>
             ))
           )}
@@ -142,24 +199,24 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
       </Conversation>
 
       <div className="border-t p-4">
-        <PromptInput 
-          onSubmit={(message, event) => {
-            event.preventDefault();
-            // Create synthetic event for useChat
-            const syntheticEvent = {
-              preventDefault: () => {},
-              target: { value: message.text }
-            } as any;
-            handleSubmit(syntheticEvent);
-          }}
-        >
-          <PromptInputTextarea
-            value={input}
-            onChange={handleInputChange}
-            placeholder={isLoading ? "Agent is responding..." : "Type a message..."}
-            disabled={isLoading}
-          />
-          <PromptInputSubmit status={status as any} disabled={!input.trim() || isLoading} />
+        <PromptInput onSubmit={handleSubmit}>
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isLoading ? "Agent is responding..." : "Type a message..."}
+              disabled={isLoading}
+            />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <PromptInputSubmit status={status as any} disabled={!input.trim() || isLoading} />
+          </PromptInputFooter>
         </PromptInput>
       </div>
     </div>
