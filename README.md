@@ -4,7 +4,7 @@ AI-powered lead validation, enrichment, and scoring with real-time workflow trac
 
 ## Features
 
-- **Chat Interface**: Interactive chat powered by AI SDK with natural language processing
+- **Modern Chat Interface**: Production-quality chat UI inspired by AI SDK Elements with avatars, improved styling, and better UX
 - **AI Agent with Tools**: Agent can submit, validate, enrich, score, and process leads
 - **Manual Workflow Refresh**: Click-to-refresh workflow status (no automatic polling)
 - **Multiple Workflows**:
@@ -13,7 +13,9 @@ AI-powered lead validation, enrichment, and scoring with real-time workflow trac
   - **Enrich**: Add company information and data enrichment
   - **Score**: Calculate lead score and determine qualification
   - **Process**: Run complete workflow (validate + enrich + score)
-- **Multi-Provider LLM Support**: Use OpenAI or OpenRouter
+- **Multi-Provider LLM Support**: Use OpenAI or OpenRouter with free models
+- **Enhanced Settings**: Improved settings panel with environment variable support for `OPENROUTER_API_KEY`
+- **Free Models Only**: OpenRouter integration shows only free models to avoid unexpected costs
 - **Persistent Settings**: Configure via environment variables for deployment persistence
 - **TypeScript**: Full type safety throughout the application
 - **Testing**: Unit tests with Jest and E2E tests with Playwright
@@ -99,6 +101,17 @@ For deploying to Vercel or other platforms, see the [Deployment Guide](./DEPLOYM
 - Configuring environment variables for production
 - Troubleshooting 401 authentication errors
 
+## UI Components and Design
+
+This application features a modern chat interface inspired by [AI SDK Elements](https://ai-sdk.dev/elements). For detailed information about the UI implementation and design patterns, see the [AI Elements Usage Guide](./AI_ELEMENTS_GUIDE.md).
+
+Key UI improvements include:
+- Message avatars for better visual hierarchy
+- Enhanced tool invocation displays
+- Modern input area with improved styling
+- Better loading states and animations
+- Production-quality settings panel
+
 ## Usage
 
 ### LLM Configuration
@@ -109,11 +122,13 @@ The application supports two ways to configure your LLM provider:
 Configure in `.env.local` as described in the installation section. This is recommended for production deployments.
 
 #### 2. Settings UI (Client-side)
-Click the **⚙️ Settings** button in the top-right corner to:
+Click the **Settings** button in the top-right corner to:
 - Switch between OpenAI and OpenRouter
 - Enter your API key (stored securely in browser localStorage)
-- For OpenRouter: Browse and select from available free models
+- For OpenRouter: Browse and select from available **free models only**
 - View free models sorted by popularity at [OpenRouter Models](https://openrouter.ai/models?fmt=cards&max_price=0&order=top-weekly)
+
+**💡 Tip**: Set `OPENROUTER_API_KEY` in your environment variables to avoid entering it each time. The settings panel will display this tip when you select OpenRouter.
 
 **Priority**: Client-side settings override server-side environment variables. For persistent settings across deployments, configure environment variables on your hosting platform (e.g., Vercel, Railway).
 

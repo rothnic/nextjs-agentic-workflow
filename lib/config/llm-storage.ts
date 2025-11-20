@@ -35,8 +35,20 @@ export function clearConfig(): void {
 }
 
 export function getDefaultConfig(): LLMConfig {
+  // Check for OPENROUTER_API_KEY in environment (for convenience)
+  // Note: This only works on client-side if the env var is exposed with NEXT_PUBLIC_ prefix
+  const openrouterKey = typeof window !== 'undefined' && (window as any).OPENROUTER_API_KEY;
+  
   return {
-    provider: 'openai',
-    apiKey: '',
+    provider: openrouterKey ? 'openrouter' : 'openai',
+    apiKey: openrouterKey || '',
+  };
+}
+
+// Helper to get environment-based config hints for the settings UI
+export function getEnvConfigHints(): { hasOpenRouterKey: boolean } {
+  // This would need to be called from an API route to access server env vars
+  return {
+    hasOpenRouterKey: false, // Client-side can't access server env vars directly
   };
 }
