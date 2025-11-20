@@ -201,8 +201,8 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex space-x-1">
                               <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></div>
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce-delay-1"></div>
+                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce-delay-2"></div>
                             </div>
                             <span>Executing...</span>
                           </div>
@@ -225,8 +225,8 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-delay-1"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-delay-2"></div>
                   </div>
                   <span className="text-sm">Thinking...</span>
                 </div>
