@@ -45,14 +45,14 @@ export default function Home() {
           </div>
         </header>
         
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 bg-background">
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          <div className="flex-1 bg-background overflow-hidden">
             <ChatInterface onWorkflowTriggered={handleWorkflowTriggered} />
           </div>
           
           <Separator orientation="vertical" />
           
-          <div className="w-96 bg-card">
+          <div className="w-96 bg-card flex-shrink-0 overflow-hidden">
             <WorkflowStatus refreshTrigger={refreshTrigger} />
           </div>
         </div>
