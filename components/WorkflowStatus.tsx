@@ -3,6 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { WorkflowRun } from '@/lib/workflows/workflow-tracking';
 import { getStatusColor, getStatusIcon, formatDuration } from '@/lib/utils/workflow-display';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { RefreshCwIcon, ActivityIcon, ClockIcon, CheckCircle2Icon, XCircleIcon, LoaderIcon } from 'lucide-react';
 
 interface WorkflowStatusProps {
   refreshTrigger?: number;
@@ -11,6 +17,21 @@ interface WorkflowStatusProps {
 const POLLING_INTERVAL = 5000; // Poll every 5 seconds
 const MAX_POLLING_DURATION = 30000; // Stop polling after 30 seconds
 const MAX_EMPTY_REQUESTS = 50; // Stop after 50 empty requests
+
+const StatusIcon = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'completed':
+      return <CheckCircle2Icon className="size-4 text-green-600" />;
+    case 'failed':
+      return <XCircleIcon className="size-4 text-red-600" />;
+    case 'running':
+      return <LoaderIcon className="size-4 text-blue-600 animate-spin" />;
+    case 'pending':
+      return <ClockIcon className="size-4 text-yellow-600" />;
+    default:
+      return <ActivityIcon className="size-4 text-gray-600" />;
+  }
+};
 
 export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
@@ -172,93 +193,105 @@ export function WorkflowStatus({ refreshTrigger }: WorkflowStatusProps) {
   const recentRuns = runs.slice(-5).reverse();
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-300 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Workflow Status
-          </h2>
-          <button
+    <div className="flex flex-col h-full bg-background">
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ActivityIcon className="size-5" />
+            <div>
+              <h2 className="text-lg font-semibold">Workflow Status</h2>
+              <p className="text-xs text-muted-foreground">
+                {isIdle
+                  ? 'Idle - click refresh to check for updates'
+                  : isPolling
+                  ? 'Auto-refreshing every 5 seconds...'
+                  : 'Click refresh to update'}
+              </p>
+            </div>
+          </div>
+          <Button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className={`text-xs px-3 py-1 rounded transition-colors ${
-              isRefreshing
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-            title="Refresh workflows"
+            size="sm"
+            variant="outline"
           >
-            <span className="inline-block min-w-[70px]">
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </span>
-          </button>
+            <RefreshCwIcon className={`size-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
-        <p className="text-xs text-gray-600 dark:text-gray-400">
-          {isIdle
-            ? 'Idle - click refresh to check for updates'
-            : isPolling
-            ? 'Auto-refreshing every 5 seconds...'
-            : 'Click refresh to update workflow status'}
-        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {recentRuns.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            <p className="text-sm">No workflows found</p>
-            <p className="text-xs mt-1">Start a workflow from the chat</p>
-          </div>
-        )}
-
-        {recentRuns.map((run) => (
-          <div
-            key={run.id}
-            className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-900"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                  {run.workflowName.toUpperCase()}
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Lead: {run.leadId}
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-4">
+          {recentRuns.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <ActivityIcon className="size-12 text-muted-foreground mb-4" />
+                <p className="text-sm font-medium text-center">No workflows found</p>
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  Start a workflow from the chat
                 </p>
-              </div>
-              <div className={`text-sm font-semibold ${getStatusColor(run.status)}`}>
-                {getStatusIcon(run.status)} {run.status}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
+          ) : (
+            recentRuns.map((run) => (
+              <Card key={run.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-sm font-semibold uppercase">
+                        {run.workflowName}
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        Lead: {run.leadId}
+                      </CardDescription>
+                    </div>
+                    <Badge variant={run.status === 'completed' ? 'default' : run.status === 'failed' ? 'destructive' : 'secondary'}>
+                      <StatusIcon status={run.status} />
+                      <span className="ml-1">{run.status}</span>
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {run.steps.map((step, index) => (
+                    <div key={step.id}>
+                      <div className="flex items-center text-xs">
+                        <div className="mr-2">
+                          <StatusIcon status={step.status} />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium">{step.name}</span>
+                        </div>
+                        {step.startTime && (
+                          <span className="text-muted-foreground text-xs">
+                            {formatDuration(step.startTime, step.endTime)}
+                          </span>
+                        )}
+                      </div>
+                      {index < run.steps.length - 1 && <Separator className="my-2" />}
+                    </div>
+                  ))}
 
-            <div className="space-y-1">
-              {run.steps.map((step) => (
-                <div key={step.id} className="flex items-center text-xs">
-                  <div className={`mr-2 ${getStatusColor(step.status)}`}>
-                    {getStatusIcon(step.status)}
+                  <Separator className="my-3" />
+                  
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <ClockIcon className="size-3" />
+                      <span>Duration: {formatDuration(run.startTime, run.endTime)}</span>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <span className="text-gray-900 dark:text-gray-100">{step.name}</span>
-                  </div>
-                  {step.startTime && (
-                    <span className="text-gray-500 dark:text-gray-500 text-xs">
-                      {formatDuration(step.startTime, step.endTime)}
-                    </span>
+
+                  {run.error && (
+                    <div className="mt-2 p-2 text-xs text-destructive bg-destructive/10 rounded">
+                      Error: {run.error}
+                    </div>
                   )}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-600 dark:text-gray-400">
-              Duration: {formatDuration(run.startTime, run.endTime)}
-            </div>
-
-            {run.error && (
-              <div className="mt-2 text-xs text-red-600 dark:text-red-400">
-                Error: {run.error}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
