@@ -17,6 +17,7 @@ import {
   MessageActions,
   MessageAction,
 } from '@/components/ai-elements/message';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { 
   PromptInput,
   PromptInputHeader,
@@ -55,11 +56,19 @@ interface ToolInvocation {
   };
 }
 
+interface ReasoningPart {
+  type: 'reasoning';
+  reasoning?: string;
+}
+
 interface ChatMessage {
   id: string;
   role: string;
   content: string;
   toolInvocations?: ToolInvocation[];
+  experimental_data?: {
+    reasoning?: ReasoningPart[];
+  };
 }
 
 interface ChatInterfaceProps {
@@ -110,7 +119,7 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
     if (hasServerKey && selectedModel) {
       const newConfig: LLMConfig = {
         provider: 'openrouter',
-        apiKey: '', // Will use server-side key
+        apiKey: 'use-server-key', // Special marker to use server-side key
         model: selectedModel,
         baseUrl: 'https://openrouter.ai/api/v1',
       };
@@ -167,7 +176,7 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
   return (
     <div className="flex flex-col h-full">
       <Conversation>
-        <ConversationContent>
+        <ConversationContent className="max-w-4xl mx-auto w-full px-4">
           {messages.length === 0 ? (
             <ConversationEmptyState
               icon={<MessageSquareIcon className="size-12" />}
@@ -188,6 +197,16 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
             messages.map((message: ChatMessage, index) => (
               <Message key={message.id} from={message.role as any}>
                 <MessageContent>
+                  {/* Show reasoning/thinking blocks if available */}
+                  {message.experimental_data?.reasoning && message.experimental_data.reasoning.length > 0 && (
+                    <Reasoning defaultOpen={false} className="mb-2">
+                      <ReasoningTrigger />
+                      <ReasoningContent>
+                        {message.experimental_data.reasoning.map(r => r.reasoning).filter(Boolean).join('\n\n')}
+                      </ReasoningContent>
+                    </Reasoning>
+                  )}
+                  
                   {message.content && (
                     <MessageResponse>{message.content}</MessageResponse>
                   )}
@@ -203,7 +222,7 @@ export function ChatInterface({ onWorkflowTriggered }: ChatInterfaceProps) {
                           : 'input-streaming';
 
                         return (
-                          <Tool key={toolInvocation.toolCallId} defaultOpen>
+                          <Tool key={toolInvocation.toolCallId} defaultOpen={false}>
                             <ToolHeader
                               title={toolInvocation.toolName}
                               type="tool-invocation"

@@ -101,23 +101,43 @@ export async function POST(req: Request) {
     // Use client config if provided, otherwise use server config
     let model;
     try {
-      if (config?.provider === 'openrouter' && config?.apiKey && config?.model) {
-        // Sanitize API key - remove any env var prefix if present
-        let apiKey = config.apiKey.trim();
-        apiKey = apiKey.replace(/^OPENROUTER_API_KEY=/, '');
-        apiKey = apiKey.replace(/^["']|["']$/g, ''); // Remove quotes
+      if (config?.provider === 'openrouter' && config?.model) {
+        // Check if we should use server-side key
+        const useServerKey = !config.apiKey || config.apiKey === 'use-server-key' || config.apiKey.trim() === '';
+        
+        if (useServerKey) {
+          // Use server-side OPENROUTER_API_KEY
+          console.log('[Chat] Using server-side OpenRouter key');
+          console.log('[Chat] Model:', config.model);
+          
+          if (!process.env.OPENROUTER_API_KEY) {
+            throw new Error('OPENROUTER_API_KEY not configured on server');
+          }
+          
+          const openrouter = createOpenAI({
+            apiKey: process.env.OPENROUTER_API_KEY,
+            baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+          });
+          model = openrouter(config.model);
+          console.log('[Chat] OpenRouter model created with server key');
+        } else {
+          // Use client-provided key
+          let apiKey = config.apiKey.trim();
+          apiKey = apiKey.replace(/^OPENROUTER_API_KEY=/, '');
+          apiKey = apiKey.replace(/^["']|["']$/g, ''); // Remove quotes
 
-        console.log('[Chat] Using OpenRouter');
-        console.log('[Chat] Model:', config.model);
-        console.log('[Chat] API key length after sanitization:', apiKey.length);
-        console.log('[Chat] API key starts with:', apiKey.substring(0, 8));
+          console.log('[Chat] Using client-provided OpenRouter key');
+          console.log('[Chat] Model:', config.model);
+          console.log('[Chat] API key length after sanitization:', apiKey.length);
+          console.log('[Chat] API key starts with:', apiKey.substring(0, 8));
 
-        const openrouter = createOpenAI({
-          apiKey,
-          baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
-        });
-        model = openrouter(config.model);
-        console.log('[Chat] OpenRouter model created successfully');
+          const openrouter = createOpenAI({
+            apiKey,
+            baseURL: config.baseUrl || 'https://openrouter.ai/api/v1',
+          });
+          model = openrouter(config.model);
+          console.log('[Chat] OpenRouter model created successfully');
+        }
       } else if (config?.provider === 'openai' && config?.apiKey) {
         // Sanitize API key - remove any env var prefix if present
         let apiKey = config.apiKey.trim();
